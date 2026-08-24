@@ -513,7 +513,8 @@
   function ensureMap(p, lat, lng){
     if (mapInstances[p.id]) return mapInstances[p.id];
     var m = L.map(document.getElementById('map_'+p.id), {
-      zoomControl:false, attributionControl:true, dragging:true, scrollWheelZoom:true
+      zoomControl:false, attributionControl:true, dragging:true, scrollWheelZoom:true,
+      preferCanvas:true
     }).setView([lat,lng], 15);
     L.tileLayer(BASE_URL, {maxZoom:18, attribution:'地理院タイル'}).addTo(m);
     if (p.type === 'map'){
@@ -711,7 +712,11 @@
   xlsxBtn.addEventListener('click', function(){
     xlsxBtn.disabled = true; var orig = xlsxBtn.textContent; xlsxBtn.textContent = '作成中…';
 
-    Promise.all(panels.map(capturePanelImage)).then(function(images){
+    Object.keys(mapInstances).forEach(function(id){ mapInstances[id].map.invalidateSize(); });
+
+    new Promise(function(resolve){ setTimeout(resolve, 150); }).then(function(){
+      return Promise.all(panels.map(capturePanelImage));
+    }).then(function(images){
       var wb = new ExcelJS.Workbook();
       wb.creator = 'ハザードマップ レポート作成ツール';
       var ws = wb.addWorksheet('補足６　ハザードマップ', {
