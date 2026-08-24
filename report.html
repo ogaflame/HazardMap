@@ -338,8 +338,8 @@
     {
       id:'ekijouka', num:'③', title:'液状化', type:'mesh', color:'var(--c-ekijouka)', colorHex:'#F2B233',
       cond:'強(建物傾斜、下水道使用不可)',
-      dataUrl:'https://cyberjapandata.gsi.go.jp/xyz/experimental_landformclassification1/{z}/{x}/{y}.geojson',
-      hint:'国土地理院「地形分類」ベクトルタイル（土地の成り立ちによる液状化発生傾向）が使える地点は自動で色分け表示します。対象外の地点はスクリーンショットを読み込ませてください。',
+      dataUrl:'./ekijouka_data.json',
+      hint:'東京都オープンデータ（250mメッシュ・都心南部直下地震シナリオ）が使える地点は自動で色分け表示します。対象外の地点（東京都以外など）は、重ねるハザードマップの発生傾向図をスクリーンショットして読み込ませてください。',
       links:[{label:'重ねるハザードマップ（液状化）を開く', urlTemplate:'https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll={lat},{lng}&z=15&base=pale&ls=ekijouka_zenkoku,0.8&disp=1&vs=c1j0l0u0t0h0z0'}]
     },
     {
@@ -482,13 +482,32 @@
     });
   }
 
-  // ---------- map panels (raster tile / landform vector tile) ----------
-  function lonLatToTile(lon, lat, z){
-    var n = Math.pow(2, z);
-    var x = Math.floor((lon + 180) / 360 * n);
-    var latRad = lat * Math.PI / 180;
-    var y = Math.floor((1 - Math.log(Math.tan(latRad) + 1/Math.cos(latRad)) / Math.PI) / 2 * n);
-    return {x:x, y:y};
+  // ---------- map panels (raster tile / mesh choropleth) ----------
+  var ekijoukaDataPromise = null;
+  function loadEkijoukaData(url){
+    if (!ekijoukaDataPromise){
+      ekijoukaDataPromise = fetch(url).then(function(r){
+        if (!r.ok) throw new Error('data fetch failed: ' + r.status);
+        return r.json();
+      }).catch(function(err){
+        console.error('ekijouka data load failed', err);
+        return [];
+      });
+    }
+    return ekijoukaDataPromise;
+  }
+
+  function ekijoukaColor(pl){
+    if (pl > 15) return '#C1440E';   // 危険度がかなり高い
+    if (pl > 5)  return '#F2B233';   // 危険度が高い
+    if (pl > 0)  return '#FFE18C';   // 危険度がある
+    return '#CFE8D8';                // 危険度は極めて低い
+  }
+  function ekijoukaLabel(pl){
+    if (pl > 15) return '危険度：かなり高い（PL='+pl+'）';
+    if (pl > 5)  return '危険度：高い（PL='+pl+'）';
+    if (pl > 0)  return '危険度：あり（PL='+pl+'）';
+    return '危険度：極めて低い（PL='+pl+'）';
   }
 
   function ensureMap(p, lat, lng){
@@ -510,58 +529,31 @@
     return mapInstances[p.id];
   }
 
-  function landformFeatureStyle(feature){
-    var pr = feature.properties || {};
-    return {
-      color: pr._color || '#8884',
-      weight: pr._weight != null ? pr._weight : 0.5,
-      opacity: pr._opacity != null ? pr._opacity : 1,
-      fillColor: pr._fillColor || '#cccccc',
-      fillOpacity: pr._fillOpacity != null ? pr._fillOpacity : 0.7
-    };
-  }
-  function landformPopupText(feature){
-    var pr = feature.properties || {};
-    var lines = [];
-    Object.keys(pr).forEach(function(k){
-      if (k.indexOf('_') === 0) return; // スタイル用の内部プロパティは除く
-      lines.push(k + '：' + pr[k]);
-    });
-    return lines.length ? lines.join('<br>') : '地形分類データ';
-  }
-
-  function renderLandformMesh(p, inst, lat, lng){
+  function renderEkijoukaMesh(p, inst, lat, lng){
     inst.meshLayer.clearLayers();
     inst.dataFound = false;
-    var z = 15;
-    var center = lonLatToTile(lng, lat, z);
-    var reqs = [];
-    for (var dx=-1; dx<=1; dx++){
-      for (var dy=-1; dy<=1; dy++){
-        var x = center.x+dx, y = center.y+dy;
-        var url = p.dataUrl.replace('{z}', z).replace('{x}', x).replace('{y}', y);
-        reqs.push(
-          fetch(url).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; })
-        );
-      }
-    }
-    Promise.all(reqs).then(function(results){
-      var any = false;
-      results.forEach(function(gj){
-        if (!gj || !gj.features || !gj.features.length) return;
-        any = true;
-        L.geoJSON(gj, {
-          style: landformFeatureStyle,
-          onEachFeature: function(feature, layer){
-            layer.bindPopup(landformPopupText(feature));
-          }
-        }).addTo(inst.meshLayer);
+    loadEkijoukaData(p.dataUrl).then(function(rows){
+      // 250mメッシュ ≒ 緯度0.00225°・経度0.0027°、周辺 約1.3km四方を抽出
+      var dLat = 0.012, dLon = 0.015;
+      var half = 0.00135; // セルの半分の目安（緯度）
+      var halfLon = 0.00165;
+      var hits = rows.filter(function(row){
+        return Math.abs(row[0]-lat) < dLat && Math.abs(row[1]-lng) < dLon;
       });
-      inst.dataFound = any;
-      showMeshFallback(p, !any);
-    }).catch(function(){
-      inst.dataFound = false;
-      showMeshFallback(p, true);
+      if (!hits.length){
+        inst.dataFound = false;
+        showMeshFallback(p, true);
+        return;
+      }
+      inst.dataFound = true;
+      showMeshFallback(p, false);
+      hits.forEach(function(row){
+        var la = row[0], lo = row[1], pl = row[2];
+        var bounds = [[la-half, lo-halfLon],[la+half, lo+halfLon]];
+        L.rectangle(bounds, {
+          color:'#00000022', weight:0.5, fillColor: ekijoukaColor(pl), fillOpacity:0.72
+        }).bindPopup(ekijoukaLabel(pl)).addTo(inst.meshLayer);
+      });
     });
   }
 
@@ -589,7 +581,7 @@
       inst.map.setView([lat,lng], 15);
       if (inst.marker) inst.map.removeLayer(inst.marker);
       inst.marker = L.circleMarker([lat,lng], {radius:6, color:'#20263A', weight:2, fillColor:'#FFC93C', fillOpacity:.95}).addTo(inst.map);
-      if (p.type === 'mesh') renderLandformMesh(p, inst, lat, lng);
+      if (p.type === 'mesh') renderEkijoukaMesh(p, inst, lat, lng);
       [80, 300, 700, 1500].forEach(function(ms){
         setTimeout(function(){ inst.map.invalidateSize(); inst.map.setView([lat,lng], 15); }, ms);
       });
