@@ -226,9 +226,18 @@
 
   @media screen and (max-width:900px){
     #sheet{width:100%;height:auto;padding:0 0 14px;}
-    .grid{flex-direction:column;}
-    .row{flex-direction:column;}
-    .panel{width:100%; min-height:230px;}
+    .grid{flex-direction:column; flex:none;}
+    .row{flex-direction:column; flex:none;}
+    .panel{
+      width:100%;
+      flex:none;          /* 高さが0に潰れるのを防ぐ */
+      height:auto;
+    }
+    .panel-body{
+      flex:none;
+      height:240px;       /* 地図領域に明示的な高さを与える */
+      min-height:240px;
+    }
     .sheet-inner{padding:14px 14px 0;}
     .sheet-foot{padding:0 14px;}
     .grid{padding:0 14px;}
@@ -503,7 +512,9 @@
       inst.map.setView([lat,lng], 15);
       if (inst.marker) inst.map.removeLayer(inst.marker);
       inst.marker = L.circleMarker([lat,lng], {radius:6, color:'#20263A', weight:2, fillColor:'#FFC93C', fillOpacity:.95}).addTo(inst.map);
-      setTimeout(function(){ inst.map.invalidateSize(); }, 80);
+      [80, 300, 700, 1500].forEach(function(ms){
+        setTimeout(function(){ inst.map.invalidateSize(); inst.map.setView([lat,lng], 15); }, ms);
+      });
     });
   }
 
