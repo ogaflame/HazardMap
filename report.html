@@ -184,10 +184,10 @@
   .drop-zone{
     width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:6px;text-align:center;padding:5mm;
-    border:2px dashed var(--pc);background:color-mix(in srgb, var(--pc) 8%, #fff);cursor:pointer;
+    border:2px dashed var(--pc);background:#f7f8f4;background:color-mix(in srgb, var(--pc) 8%, #fff);cursor:pointer;
   }
-  .drop-zone:hover{background:color-mix(in srgb, var(--pc) 16%, #fff);}
-  .drop-zone.dragover{background:color-mix(in srgb, var(--pc) 24%, #fff);}
+  .drop-zone:hover{background:#eef2ec;background:color-mix(in srgb, var(--pc) 16%, #fff);}
+  .drop-zone.dragover{background:#e4ede6;background:color-mix(in srgb, var(--pc) 24%, #fff);}
   .drop-zone .dz-btn{
     background:var(--pc);color:#fff;padding:6px 16px;font-size:11px;font-weight:700;border-radius:999px;
   }
@@ -250,6 +250,24 @@
 </style>
 </head>
 <body>
+<div id="errBanner" style="display:none; background:#FF5D73; color:#fff; padding:10px 16px; font-size:12px; font-family:monospace; white-space:pre-wrap; word-break:break-all; position:relative; z-index:99999;"></div>
+<script>
+  (function(){
+    function showErr(msg){
+      var b = document.getElementById('errBanner');
+      if (!b) return;
+      b.style.display = 'block';
+      b.textContent = 'エラー: ' + msg;
+    }
+    window.onerror = function(message, source, lineno, colno){
+      showErr(message + '  (行 ' + lineno + ':' + colno + ')');
+      return false;
+    };
+    window.addEventListener('unhandledrejection', function(e){
+      showErr('通信エラー: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+    });
+  })();
+</script>
 <nav class="mode-switch">
   <a href="index.html" class="mode-tab">🔍 自由検索モード</a>
   <a href="report.html" class="mode-tab active">🏢 会社様式モード（印刷用）</a>
@@ -571,7 +589,8 @@
           console.error(err);
           alert('PDFの作成に失敗しました。地図タイルの読み込み元が外部サイトのため発生することがあります。お手数ですが「A4で印刷」→「PDFに保存」をお試しください。');
         })
-        .finally(function(){ pdfBtn.disabled = false; pdfBtn.textContent = orig; });
+        .then(function(){ pdfBtn.disabled = false; pdfBtn.textContent = orig; })
+        .catch(function(){ pdfBtn.disabled = false; pdfBtn.textContent = orig; });
     }, 150);
   });
 
@@ -703,10 +722,10 @@
     }).then(function(buffer){
       var blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
       downloadBlob(blob, baseFilename()+'.xlsx');
+      xlsxBtn.disabled = false; xlsxBtn.textContent = orig;
     }).catch(function(err){
       console.error(err);
       alert('Excelファイルの作成に失敗しました。もう一度お試しいただくか、印刷（PDF保存）をご利用ください。');
-    }).finally(function(){
       xlsxBtn.disabled = false; xlsxBtn.textContent = orig;
     });
   });
