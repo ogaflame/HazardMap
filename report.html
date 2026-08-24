@@ -527,9 +527,6 @@
     if (e.key === 'Enter'){ e.preventDefault(); doSearch(); }
   });
 
-  // 公開デモ用：初期表示時に既定の住所（国会議事堂）で自動検索
-  doSearch();
-
   // ---------- print ----------
   document.getElementById('printBtn').addEventListener('click', function(){
     Object.keys(mapInstances).forEach(function(id){ mapInstances[id].map.invalidateSize(); });
