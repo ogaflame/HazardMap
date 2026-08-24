@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>店舗ハザードマップビューア</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=Noto+Sans+JP:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root{
+    --ink:#1c2430;
+    --ink-soft:#5b6472;
+    --paper:#EFF4EE;
+    --panel:#ffffff;
+    --line:#e1e4dc;
+    --line-soft:#ececE4;
+    --teal:#4B3FCB;
+    --teal-deep:#20263A;
+    --hazard:#FF5D73;
+    --hazard-soft:#ffe3e7;
+    --ok:#26B99A;
+    --radius:999px;
+    --radius-card:12px;
+
+    --c-flood:#3E6FE0;
+    --c-naisui:#29B6D8;
+    --c-takashio:#26B99A;
+    --c-tsunami:#1FA7C9;
+    --c-dosekiryu:#E8763A;
+    --c-kyukeisha:#F2B233;
+    --c-jisuberi:#FF5D73;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:'Noto Sans JP', sans-serif;
+    color:var(--ink);
+    background:var(--paper);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .mono{font-family:'JetBrains Mono', monospace;}
+
+  /* ---------- layout shell ---------- */
+  #app{
+    height:calc(100vh - 38px - 6px);
+    display:grid;
+    grid-template-rows:auto auto 1fr;
+  }
+
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:14px 22px;
+    background:var(--teal-deep);
+    color:#f3f4ef;
+  }
+  .rainbow{ height:6px; display:flex; }
+  .rainbow span{flex:1;}
+  .rainbow span:nth-child(1){background:var(--c-jisuberi);}
+  .rainbow span:nth-child(2){background:var(--c-tsunami);}
+  .rainbow span:nth-child(3){background:var(--c-kyukeisha);}
+  .rainbow span:nth-child(4){background:var(--c-dosekiryu);}
+  .rainbow span:nth-child(5){background:var(--c-flood);}
+  .rainbow span:nth-child(6){background:var(--c-takashio);}
+
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+  .stack-mark{
+    width:34px;height:34px;flex:0 0 auto;border-radius:12px;
+    background:conic-gradient(from 200deg, var(--c-jisuberi), var(--c-tsunami), var(--c-kyukeisha), var(--c-dosekiryu), var(--c-flood), var(--c-takashio), var(--c-jisuberi));
+  }
+
+  header h1{
+    font-family:'Kosugi Maru', sans-serif;
+    font-weight:400;
+    font-size:18px;
+    margin:0;
+    letter-spacing:.02em;
+  }
+  header .sub{
+    font-size:11px;
+    color:#aab0c8;
+    margin-top:2px;
+    letter-spacing:.04em;
+  }
+  header .actions{display:flex; gap:8px; align-items:center;}
+
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border:1px solid transparent;
+    border-radius:var(--radius);
+    font-size:13px;
+  }
+
+  .btn-print{
+    background:var(--hazard);
+    color:#fff;
+    padding:10px 20px;
+    font-weight:700;
+    letter-spacing:.03em;
+    box-shadow:0 3px 0 #c93e52;
+  }
+  .btn-print:hover{transform:translateY(1px); box-shadow:0 2px 0 #c93e52;}
+  .btn-print:active{transform:translateY(3px); box-shadow:none;}
+
+  /* ---------- main split ---------- */
+  #main{
+    display:grid;
+    grid-template-columns:320px 1fr;
+    min-height:0;
+  }
+
+  #sidebar{
+    background:var(--panel);
+    border-right:1px solid var(--line);
+    overflow-y:auto;
+    padding:18px 18px 40px;
+  }
+
+  .field-label{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.08em;
+    color:var(--ink-soft);
+    text-transform:uppercase;
+    margin:0 0 8px;
+  }
+
+  #searchForm{display:flex; gap:6px; margin-bottom:6px;}
+  #addressInput{
+    flex:1;
+    padding:9px 14px;
+    border:2px solid var(--line);
+    border-radius:var(--radius);
+    font-size:14px;
+    font-family:inherit;
+  }
+  #addressInput:focus{outline:none; border-color:var(--teal);}
+  #searchForm button{
+    background:var(--teal);
+    color:#fff;
+    padding:0 18px;
+    font-weight:700;
+    box-shadow:0 3px 0 #352b93;
+  }
+  #searchForm button:hover{transform:translateY(1px); box-shadow:0 2px 0 #352b93;}
+  #searchForm button:active{transform:translateY(3px); box-shadow:none;}
+  #searchStatus{
+    font-size:12px;
+    min-height:16px;
+    margin:2px 0 18px;
+    font-weight:700;
+  }
+  #searchStatus.err{color:var(--hazard);}
+  #searchStatus.ok{color:var(--ok);}
+
+  .section{
+    padding-top:18px;
+    margin-top:18px;
+    border-top:1px solid var(--line-soft);
+  }
+  .section:first-of-type{border-top:none; margin-top:0; padding-top:0;}
+
+  .basemap-row{display:flex; gap:6px; margin-bottom:4px;}
+  .basemap-row button{
+    flex:1;
+    padding:7px 4px;
+    border:2px solid var(--line);
+    background:#fff;
+    font-size:12px;
+    font-weight:700;
+    color:var(--ink-soft);
+  }
+  .basemap-row button.active{
+    background:var(--teal);
+    color:#fff;
+    border-color:var(--teal);
+  }
+
+  .layer-item{
+    border:1px solid var(--line-soft);
+    border-radius:var(--radius-card);
+    margin-bottom:8px;
+    overflow:hidden;
+  }
+  .layer-head{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:9px 10px;
+    background:#fafaf7;
+    cursor:pointer;
+  }
+  .layer-head .swatch{
+    width:12px;height:12px;flex:0 0 auto;border-radius:2px;
+  }
+  .layer-head label{
+    font-size:13px;
+    font-weight:500;
+    flex:1;
+    cursor:pointer;
+  }
+  .layer-body{
+    padding:2px 12px 10px 32px;
+    display:none;
+  }
+  .layer-item.on .layer-body{display:block;}
+  .layer-item.on .layer-head{background:var(--paper);}
+  .opacity-row{
+    display:flex; align-items:center; gap:8px; font-size:11px; color:var(--ink-soft);
+  }
+  .opacity-row input[type=range]{flex:1;}
+
+  .unavail{
+    font-size:11.5px;
+    line-height:1.6;
+    color:var(--ink-soft);
+    background:#fbf6ee;
+    border:1px dashed #d8c9ab;
+    border-radius:var(--radius-card);
+    padding:10px 12px;
+  }
+  .unavail b{color:var(--hazard); font-weight:700;}
+
+  .legend-swatch-list{font-size:11.5px; color:var(--ink-soft); line-height:1.7;}
+
+  #map{width:100%; height:100%;}
+
+  footer{
+    font-size:10.5px;
+    color:var(--ink-soft);
+    padding:8px 14px;
+    background:var(--panel);
+    border-top:1px solid var(--line);
+  }
+  footer a{color:var(--teal-deep);}
+
+  /* leaflet control tweak */
+  .leaflet-control-attribution{font-size:10px !important;}
+
+  /* ---------- print ---------- */
+  @media print{
+    header .actions, #sidebar .no-print, #searchForm, #searchStatus, footer{display:none !important;}
+    header{background:#fff; color:var(--ink); border-bottom:2px solid var(--ink);}
+    .rainbow{display:none !important;}
+    #main{grid-template-columns:220px 1fr;}
+    #sidebar{border-right:1px solid #999; overflow:visible;}
+    #app{height:auto;}
+    #map{height:100vh;}
+    body{background:#fff;}
+    .layer-body{display:block !important;}
+    .leaflet-control-zoom, .leaflet-control-layers{display:none;}
+  }
+
+  @media (max-width: 760px){
+    #main{grid-template-columns:1fr;}
+    #sidebar{order:2; max-height:44vh;}
+    #map{min-height:40vh;}
+  }
+  /* ---------- mode switch tabs (shared across both tools) ---------- */
+  .mode-switch{
+    display:flex; background:#11151c; position:relative; z-index:1000;
+  }
+  .mode-tab{
+    flex:1; text-align:center; padding:9px 10px; font-size:12.5px; font-weight:700;
+    color:#8a93a8; text-decoration:none; letter-spacing:.02em;
+    border-bottom:3px solid transparent;
+  }
+  .mode-tab.active{ color:#fff; border-bottom-color:#e39a6b; background:#1b2029; }
+  .mode-tab:hover{ color:#fff; }
+  @media print{ .mode-switch{ display:none !important; } }
+</style>
+</head>
+<body>
+<nav class="mode-switch">
+  <a href="index.html" class="mode-tab active">🔍 自由検索モード</a>
+  <a href="report.html" class="mode-tab">🏢 会社様式モード（印刷用）</a>
+</nav>
+<div id="app">
+  <div class="rainbow"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+  <header>
+    <div class="brand">
+      <div class="stack-mark"></div>
+      <div>
+        <h1>店舗ハザードマップビューア</h1>
+        <div class="sub">住所検索 &times; 重ねるハザードマップ 公式タイル配信</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn-print" id="printBtn">この画面を印刷</button>
+    </div>
+  </header>
+
+  <div id="main">
+    <aside id="sidebar">
+
+      <div class="section">
+        <p class="field-label">住所で検索</p>
+        <form id="searchForm">
+          <input type="text" id="addressInput" placeholder="例）東京都立川市曙町2-8-1" autocomplete="off">
+          <button type="submit">検索</button>
+        </form>
+        <div id="searchStatus"></div>
+      </div>
+
+      <div class="section">
+        <p class="field-label">背景地図</p>
+        <div class="basemap-row">
+          <button data-base="pale" class="active">淡色</button>
+          <button data-base="std">標準</button>
+          <button data-base="photo">写真</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <p class="field-label">ハザードレイヤー（公式オープンデータ）</p>
+        <div id="layerList"></div>
+      </div>
+
+      <div class="section">
+        <p class="field-label">対応していない項目</p>
+        <div class="unavail">
+          <b>地震（震度分布）・液状化</b> は国土地理院のオープンデータ配信の対象外のため、本ツールでは表示できません。都道府県の被害想定システム（例：東京都防災アプリ／被害想定など）でスクリーンショットを取得し、別途Excelに貼り付けてください。
+        </div>
+      </div>
+
+    </aside>
+
+    <div id="map"></div>
+  </div>
+
+  <footer>
+    出典：<a href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener">ハザードマップポータルサイト（国土交通省・国土地理院）</a>　背景地図：地理院タイル（国土地理院）　本ツールは配信データをリアルタイムに読み込んで表示しており、内容の正確性は出典元の発表に基づきます。
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // ---- base maps ----
+  var baseLayers = {
+    pale: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {maxZoom:18, attribution:'地理院タイル'}),
+    std:  L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',  {maxZoom:18, attribution:'地理院タイル'}),
+    photo:L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', {maxZoom:18, attribution:'地理院タイル（写真）'})
+  };
+
+  var map = L.map('map', {
+    center:[35.6969, 139.4076], // 立川駅付近を初期表示
+    zoom:14,
+    layers:[baseLayers.pale]
+  });
+  L.control.scale({imperial:false}).addTo(map);
+
+  var currentBase = 'pale';
+  document.querySelectorAll('.basemap-row button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if (btn.dataset.base === currentBase) return;
+      map.removeLayer(baseLayers[currentBase]);
+      currentBase = btn.dataset.base;
+      baseLayers[currentBase].addTo(map);
+      baseLayers[currentBase].bringToBack();
+      document.querySelectorAll('.basemap-row button').forEach(function(b){b.classList.remove('active');});
+      btn.classList.add('active');
+    });
+  });
+
+  // ---- hazard layers (official disaportal open data) ----
+  var HAZARD_ATTR = '<a href="https://disaportal.gsi.go.jp/hazardmap/copyright/opendata.html" target="_blank">ハザードマップポータルサイト</a>';
+
+  var defs = [
+    {
+      id:'flood', title:'水害（洪水）浸水想定 想定最大規模', color:'#3E6FE0',
+      url:'https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png',
+      legend:'黄→橙→赤→紫の順に浸水深が深くなります（0.5m未満〜20m以上）'
+    },
+    {
+      id:'naisui', title:'内水（雨水出水）浸水想定', color:'#29B6D8',
+      url:'https://disaportaldata.gsi.go.jp/raster/02_naisui_data/{z}/{x}/{y}.png',
+      legend:'一部市町村のみ配信。下水道等の排水能力を超えた浸水想定'
+    },
+    {
+      id:'takashio', title:'高潮浸水想定', color:'#26B99A',
+      url:'https://disaportaldata.gsi.go.jp/raster/03_hightide_l2_shinsuishin_data/{z}/{x}/{y}.png',
+      legend:'沿岸部の一部都道府県のみ配信'
+    },
+    {
+      id:'tsunami', title:'津波浸水想定', color:'#1FA7C9',
+      url:'https://disaportaldata.gsi.go.jp/raster/04_tsunami_newlegend_data/{z}/{x}/{y}.png',
+      legend:'沿岸部の一部都道府県のみ配信。内陸店舗では通常表示されません'
+    },
+    {
+      id:'dosekiryu', title:'土砂災害警戒区域（土石流）', color:'#E8763A',
+      url:'https://disaportaldata.gsi.go.jp/raster/05_dosekiryukeikaikuiki/{z}/{x}/{y}.png',
+      legend:'黄＝警戒区域／赤＝特別警戒区域'
+    },
+    {
+      id:'kyukeisha', title:'土砂災害警戒区域（急傾斜地の崩壊）', color:'#F2B233',
+      url:'https://disaportaldata.gsi.go.jp/raster/05_kyukeishakeikaikuiki/{z}/{x}/{y}.png',
+      legend:'黄＝警戒区域／赤＝特別警戒区域'
+    },
+    {
+      id:'jisuberi', title:'土砂災害警戒区域（地すべり）', color:'#FF5D73',
+      url:'https://disaportaldata.gsi.go.jp/raster/05_jisuberikeikaikuiki/{z}/{x}/{y}.png',
+      legend:'黄＝警戒区域／赤＝特別警戒区域'
+    }
+  ];
+
+  var listEl = document.getElementById('layerList');
+  var activeLayers = {};
+
+  defs.forEach(function(d){
+    var item = document.createElement('div');
+    item.className = 'layer-item';
+    item.innerHTML =
+      '<div class="layer-head">' +
+        '<span class="swatch" style="background:'+d.color+'"></span>' +
+        '<input type="checkbox" id="chk_'+d.id+'" style="margin:0 2px 0 0;">' +
+        '<label for="chk_'+d.id+'">'+d.title+'</label>' +
+      '</div>' +
+      '<div class="layer-body">' +
+        '<div class="legend-swatch-list">'+d.legend+'</div>' +
+        '<div class="opacity-row" style="margin-top:6px;">' +
+          '<span>不透明度</span>' +
+          '<input type="range" min="20" max="100" value="70" id="op_'+d.id+'">' +
+        '</div>' +
+      '</div>';
+    listEl.appendChild(item);
+
+    var chk = item.querySelector('#chk_'+d.id);
+    var op  = item.querySelector('#op_'+d.id);
+
+    chk.addEventListener('change', function(){
+      if (chk.checked){
+        var layer = L.tileLayer(d.url, {
+          maxZoom:17, minZoom:2, opacity: op.value/100,
+          attribution: HAZARD_ATTR
+        });
+        layer.addTo(map);
+        activeLayers[d.id] = layer;
+        item.classList.add('on');
+      } else {
+        if (activeLayers[d.id]){ map.removeLayer(activeLayers[d.id]); delete activeLayers[d.id]; }
+        item.classList.remove('on');
+      }
+    });
+    op.addEventListener('input', function(){
+      if (activeLayers[d.id]) activeLayers[d.id].setOpacity(op.value/100);
+    });
+    item.querySelector('.layer-head label').addEventListener('click', function(e){
+      e.preventDefault();
+      chk.checked = !chk.checked;
+      chk.dispatchEvent(new Event('change'));
+    });
+  });
+
+  // default: turn on flood so first-time users see something
+  document.getElementById('chk_flood').click();
+
+  // ---- marker ----
+  var marker = null;
+
+  // ---- address search via GSI geocoder ----
+  var form = document.getElementById('searchForm');
+  var input = document.getElementById('addressInput');
+  var status = document.getElementById('searchStatus');
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var q = input.value.trim();
+    if (!q) return;
+    status.className = '';
+    status.textContent = '検索中…';
+
+    fetch('https://msearch.gsi.go.jp/address-search/AddressSearch?q=' + encodeURIComponent(q))
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (!data || !data.length){
+          status.className = 'err';
+          status.textContent = '該当する住所が見つかりませんでした。表記を変えてお試しください。';
+          return;
+        }
+        var top = data[0];
+        var lon = top.geometry.coordinates[0];
+        var lat = top.geometry.coordinates[1];
+        var title = top.properties.title || q;
+
+        if (marker) map.removeLayer(marker);
+        marker = L.marker([lat, lon]).addTo(map).bindPopup(title);
+        map.setView([lat, lon], 16);
+        marker.openPopup();
+
+        status.className = 'ok';
+        status.textContent = '表示：' + title;
+      })
+      .catch(function(){
+        status.className = 'err';
+        status.textContent = '検索に失敗しました。通信環境をご確認のうえ再試行してください。';
+      });
+  });
+
+  // ---- print ----
+  document.getElementById('printBtn').addEventListener('click', function(){
+    setTimeout(function(){
+      map.invalidateSize();
+      window.print();
+    }, 50);
+  });
+
+  window.addEventListener('resize', function(){ map.invalidateSize(); });
+})();
+</script>
+</body>
+</html>
