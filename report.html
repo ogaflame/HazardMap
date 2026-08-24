@@ -107,11 +107,10 @@
 
   /* ============ the A4 sheet ============ */
   #sheet{
-    width:210mm; height:297mm;
+    width:210mm; min-height:297mm;
     margin:22px auto 60px 4vw;
     background:#fff; padding:0 0 7mm;
     box-shadow:0 6px 24px rgba(32,38,58,.16);
-    display:flex; flex-direction:column;
     border-radius:4px; overflow:hidden;
   }
   #sheet .sheet-inner{padding:7mm 9mm 0;}
@@ -124,26 +123,21 @@
   .sheet-meta b{color:var(--ink);}
 
   .grid{
-    flex:1;
     display:flex;
     flex-direction:column;
     gap:3.5mm;
     padding:0 9mm;
-    min-height:0;
   }
   .row{
-    flex:1;
     display:flex;
     gap:3.5mm;
-    min-height:0;
   }
 
   .panel{
-    flex:1 1 0;
-    width:0; /* let flexbox control width evenly, avoids content-based sizing */
+    width:calc(50% - 1.75mm);
     border-radius:8px;
     display:flex; flex-direction:column;
-    overflow:hidden; background:#fff; min-height:0;
+    overflow:hidden; background:#fff;
     border:1.5pt solid var(--pc);
     box-shadow:0 2px 0 var(--pc);
   }
@@ -171,7 +165,7 @@
   }
   .panel-cond input:focus{outline:none;border-bottom:1px solid var(--pc);}
 
-  .panel-body{flex:1; position:relative; background:#f3f4ee; min-height:0;}
+  .panel-body{height:58mm; position:relative; background:#f3f4ee;}
   .leafmap{width:100%;height:100%;}
   .placeholder{
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
@@ -220,27 +214,19 @@
     .grid{gap:2.8mm;}
     .row{gap:2.8mm;}
     .panel{break-inside:avoid;}
+    .panel-body{height:66mm;}
     .leaflet-control-attribution{display:none;}
     *{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
   }
 
   @media screen and (max-width:900px){
-    #sheet{width:100%;height:auto;padding:0 0 14px;}
-    .grid{flex-direction:column; flex:none;}
-    .row{flex-direction:column; flex:none;}
-    .panel{
-      width:100%;
-      flex:none;          /* 高さが0に潰れるのを防ぐ */
-      height:auto;
-    }
-    .panel-body{
-      flex:none;
-      height:240px;       /* 地図領域に明示的な高さを与える */
-      min-height:240px;
-    }
+    #sheet{width:100%;padding:0 0 14px;}
+    .grid{padding:0 14px;}
+    .row{flex-direction:column;}
+    .panel{width:100%;}
+    .panel-body{height:220px;}
     .sheet-inner{padding:14px 14px 0;}
     .sheet-foot{padding:0 14px;}
-    .grid{padding:0 14px;}
   }
   /* ---------- mode switch tabs (shared across both tools) ---------- */
   .mode-switch{
