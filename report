@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>補足６：ハザードマップ レポート作成</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+
+  :root{
+    --paper:#EFF4EE;
+    --panel:#ffffff;
+    --ink:#1c2430;
+    --ink-soft:#5b6472;
+    --line:#e1e4dc;
+
+    --c-jishin:#FF5D73;    /* 地震：珊瑚ピンク */
+    --c-tsunami:#1FA7C9;   /* 津波：海の青 */
+    --c-ekijouka:#F2B233;  /* 液状化：山吹色 */
+    --c-dosha:#E8763A;     /* 土砂崩れ：土の橙 */
+    --c-suigai:#3E6FE0;    /* 水害：藍色 */
+    --c-takashio:#26B99A;  /* 高潮：ラグーングリーン */
+
+    --ui-indigo:#4B3FCB;
+    --ui-coral:#FF5D73;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; font-family:'Noto Sans JP',sans-serif; color:var(--ink); background:var(--paper); -webkit-font-smoothing:antialiased;}
+  .display{font-family:'Kosugi Maru',sans-serif;}
+
+  /* rainbow signature strip */
+  .rainbow{
+    height:6px; display:flex;
+  }
+  .rainbow span{flex:1;}
+  .rainbow span:nth-child(1){background:var(--c-jishin);}
+  .rainbow span:nth-child(2){background:var(--c-tsunami);}
+  .rainbow span:nth-child(3){background:var(--c-ekijouka);}
+  .rainbow span:nth-child(4){background:var(--c-dosha);}
+  .rainbow span:nth-child(5){background:var(--c-suigai);}
+  .rainbow span:nth-child(6){background:var(--c-takashio);}
+
+  /* ============ screen chrome ============ */
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 24px; background:#20263A; color:#fff;
+  }
+  .brand{display:flex; align-items:center; gap:14px;}
+  .brand-badge{
+    width:38px;height:38px;border-radius:12px;
+    background:conic-gradient(from 200deg, var(--c-jishin), var(--c-tsunami), var(--c-ekijouka), var(--c-dosha), var(--c-suigai), var(--c-takashio), var(--c-jishin));
+    flex:0 0 auto;
+  }
+  header h1{font-family:'Kosugi Maru',sans-serif;font-weight:400;font-size:18px;margin:0;letter-spacing:.02em;}
+  header .sub{font-size:11px;color:#aab0c8;margin-top:2px;}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:999px;font-size:13px;}
+  .btn-group{display:flex; gap:8px;}
+  .btn-print{
+    background:var(--ui-coral);color:#fff;padding:10px 18px;font-weight:700;
+    box-shadow:0 3px 0 #c93e52;
+  }
+  .btn-print:hover{transform:translateY(1px); box-shadow:0 2px 0 #c93e52;}
+  .btn-print:active{transform:translateY(3px); box-shadow:none;}
+  .btn-pdf{
+    background:#3E6FE0;color:#fff;padding:10px 18px;font-weight:700;
+    box-shadow:0 3px 0 #2a4fa8;
+  }
+  .btn-pdf:hover{transform:translateY(1px); box-shadow:0 2px 0 #2a4fa8;}
+  .btn-pdf:active{transform:translateY(3px); box-shadow:none;}
+  .btn-pdf:disabled{opacity:.6; cursor:wait;}
+  .btn-xlsx{
+    background:#26B99A;color:#fff;padding:10px 18px;font-weight:700;
+    box-shadow:0 3px 0 #1b8a72;
+  }
+  .btn-xlsx:hover{transform:translateY(1px); box-shadow:0 2px 0 #1b8a72;}
+  .btn-xlsx:active{transform:translateY(3px); box-shadow:none;}
+  .btn-xlsx:disabled{opacity:.6; cursor:wait;}
+
+  #toolbar{
+    background:var(--panel); border-bottom:1px solid var(--line);
+    padding:14px 24px; display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;
+  }
+  .field{display:flex;flex-direction:column;gap:4px;}
+  .field label{font-size:11px;font-weight:700;color:var(--ink-soft);letter-spacing:.04em;}
+  .field input{padding:9px 13px;border:2px solid var(--line);border-radius:999px;font-size:14px;font-family:inherit;min-width:170px;}
+  .field input:focus{outline:none;border-color:var(--ui-indigo);}
+  #addressInput{min-width:290px;}
+  #searchBtn{
+    background:var(--ui-indigo);color:#fff;padding:10px 20px;font-weight:700;
+    box-shadow:0 3px 0 #352b93;
+  }
+  #searchBtn:hover{transform:translateY(1px); box-shadow:0 2px 0 #352b93;}
+  #searchBtn:active{transform:translateY(3px); box-shadow:none;}
+  #searchStatus{font-size:12px;align-self:center;font-weight:700;}
+  #searchStatus.err{color:var(--c-jishin);}
+  #searchStatus.ok{color:var(--c-takashio);}
+
+  .hint-bar{
+    font-size:11.5px;color:var(--ink-soft);padding:9px 24px;background:#FFF4DD;
+    border-bottom:1px solid var(--line);
+  }
+  .hint-bar b{color:var(--c-dosha);}
+
+  /* ============ the A4 sheet ============ */
+  #sheet{
+    width:210mm; height:297mm;
+    margin:22px auto 60px;
+    background:#fff; padding:0 0 7mm;
+    box-shadow:0 6px 24px rgba(32,38,58,.16);
+    display:flex; flex-direction:column;
+    border-radius:4px; overflow:hidden;
+  }
+  #sheet .sheet-inner{padding:7mm 9mm 0;}
+  .sheet-title{
+    font-family:'Kosugi Maru',sans-serif;font-weight:400;font-size:16pt;
+    margin:0 0 2mm; color:var(--ink);
+  }
+  .sheet-title .dot{color:var(--ui-coral);}
+  .sheet-meta{font-size:8.5pt;color:var(--ink-soft);margin:0 0 3mm;}
+  .sheet-meta b{color:var(--ink);}
+
+  .grid{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    gap:3.5mm;
+    padding:0 9mm;
+    min-height:0;
+  }
+  .row{
+    flex:1;
+    display:flex;
+    gap:3.5mm;
+    min-height:0;
+  }
+
+  .panel{
+    flex:1 1 0;
+    width:0; /* let flexbox control width evenly, avoids content-based sizing */
+    border-radius:8px;
+    display:flex; flex-direction:column;
+    overflow:hidden; background:#fff; min-height:0;
+    border:1.5pt solid var(--pc);
+    box-shadow:0 2px 0 var(--pc);
+  }
+  .panel-head{
+    background:var(--pc); color:#fff;
+    padding:1.8mm 3mm;
+    font-family:'Kosugi Maru',sans-serif;font-weight:400;font-size:10pt;
+    flex:0 0 auto;
+    display:flex; align-items:center; gap:1.5mm;
+  }
+  .panel-head .badge-num{
+    width:5.5mm;height:5.5mm;border-radius:50%;background:rgba(255,255,255,.94);
+    color:var(--pc); display:flex; align-items:center; justify-content:center;
+    font-family:'Noto Sans JP',sans-serif; font-weight:900; font-size:7.5pt; flex:0 0 auto;
+  }
+  .panel-cond{
+    padding:1.4mm 3mm; background:#fbfbf7;
+    border-bottom:.5pt solid var(--line); flex:0 0 auto;
+    display:flex; align-items:baseline; gap:4px;
+  }
+  .panel-cond .cond-label{font-size:6.5pt;color:var(--ink-soft);flex:0 0 auto;letter-spacing:.04em;font-weight:700;}
+  .panel-cond input{
+    flex:1; border:none; background:transparent; font-size:8.5pt; font-weight:700;
+    color:var(--pc); font-family:inherit; padding:0; min-width:0;
+  }
+  .panel-cond input:focus{outline:none;border-bottom:1px solid var(--pc);}
+
+  .panel-body{flex:1; position:relative; background:#f3f4ee; min-height:0;}
+  .leafmap{width:100%;height:100%;}
+  .placeholder{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:8pt;color:var(--ink-soft);text-align:center;padding:6mm;
+  }
+
+  /* upload slot */
+  .upload-slot{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
+  .upload-slot img{max-width:100%;max-height:100%;object-fit:contain;}
+  .drop-zone{
+    width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:6px;text-align:center;padding:5mm;
+    border:2px dashed var(--pc);background:color-mix(in srgb, var(--pc) 8%, #fff);cursor:pointer;
+  }
+  .drop-zone:hover{background:color-mix(in srgb, var(--pc) 16%, #fff);}
+  .drop-zone.dragover{background:color-mix(in srgb, var(--pc) 24%, #fff);}
+  .drop-zone .dz-btn{
+    background:var(--pc);color:#fff;padding:6px 16px;font-size:11px;font-weight:700;border-radius:999px;
+  }
+  .drop-zone .dz-hint{font-size:8pt;color:var(--ink-soft);line-height:1.6;max-width:62mm;}
+  .drop-zone .dz-link{font-size:7.5pt;}
+  .drop-zone .dz-link a{color:var(--pc); font-weight:700;}
+  .replace-btn{
+    position:absolute;top:5px;right:5px;background:rgba(255,255,255,.95);
+    border:1px solid var(--line);font-size:10px;padding:3px 9px;border-radius:999px;z-index:600;font-weight:700;
+  }
+
+  .sheet-foot{
+    font-size:6.5pt;color:var(--ink-soft);margin-top:2.5mm;line-height:1.5;flex:0 0 auto;
+    padding:0 9mm;
+  }
+
+  .leaflet-control-attribution{font-size:6pt !important;}
+  .leaflet-control-zoom{display:none;}
+
+  /* ============ print: exactly one A4 page ============ */
+  @page{ size:A4 portrait; margin:0; }
+  @media print{
+    header, #toolbar, .hint-bar, .replace-btn, .drop-zone .dz-btn, .drop-zone .dz-link{display:none !important;}
+    body{background:#fff;}
+    #sheet{
+      width:210mm; height:297mm; min-height:0;
+      margin:0; box-shadow:none; border-radius:0;
+      page-break-after:avoid;
+    }
+    .grid{gap:2.8mm;}
+    .row{gap:2.8mm;}
+    .panel{break-inside:avoid;}
+    .leaflet-control-attribution{display:none;}
+    *{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  }
+
+  @media screen and (max-width:900px){
+    #sheet{width:100%;height:auto;padding:0 0 14px;}
+    .grid{flex-direction:column;}
+    .row{flex-direction:column;}
+    .panel{width:100%; min-height:230px;}
+    .sheet-inner{padding:14px 14px 0;}
+    .sheet-foot{padding:0 14px;}
+    .grid{padding:0 14px;}
+  }
+  /* ---------- mode switch tabs (shared across both tools) ---------- */
+  .mode-switch{
+    display:flex; background:#11151c; position:relative; z-index:1000;
+  }
+  .mode-tab{
+    flex:1; text-align:center; padding:9px 10px; font-size:12.5px; font-weight:700;
+    color:#8a93a8; text-decoration:none; letter-spacing:.02em;
+    border-bottom:3px solid transparent;
+  }
+  .mode-tab.active{ color:#fff; border-bottom-color:#FF5D73; background:#1b2029; }
+  .mode-tab:hover{ color:#fff; }
+  @media print{ .mode-switch{ display:none !important; } }
+</style>
+</head>
+<body>
+<nav class="mode-switch">
+  <a href="index.html" class="mode-tab">🔍 自由検索モード</a>
+  <a href="report.html" class="mode-tab active">🏢 会社様式モード（印刷用）</a>
+</nav>
+
+<div class="rainbow"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+<header>
+  <div class="brand">
+    <div class="brand-badge"></div>
+    <div>
+      <h1>ハザードマップ レポート作成</h1>
+      <div class="sub">会社様式 ①〜⑥ 固定レイアウト ／ A4縦1枚出力</div>
+    </div>
+  </div>
+  <div class="btn-group">
+    <button class="btn-print" id="printBtn">A4で印刷 🖨️</button>
+    <button class="btn-pdf" id="pdfBtn">PDF保存 📄</button>
+    <button class="btn-xlsx" id="xlsxBtn">Excel保存 📊</button>
+  </div>
+</header>
+
+<div id="toolbar">
+  <div class="field">
+    <label for="storeName">店舗名</label>
+    <input type="text" id="storeName" placeholder="例）立川南口店" value="国会議事堂店">
+  </div>
+  <div class="field">
+    <label for="addressInput">住所</label>
+    <input type="text" id="addressInput" placeholder="例）東京都立川市曙町2-8-1" value="千代田区永田町1丁目7">
+  </div>
+  <button id="searchBtn">この住所で表示 ➜</button>
+  <span id="searchStatus"></span>
+</div>
+
+<div class="hint-bar">
+  ②津波・④土砂崩れ・⑤水害(洪水)・⑥高潮は住所検索で自動表示されます。<b>①地震・③液状化</b>は枠をクリック／ドラッグ＆ドロップ／枠にカーソルを乗せてCtrl+Vでスクリーンショットを読み込ませてください。
+</div>
+
+<div id="sheet">
+  <div class="sheet-inner">
+    <p class="sheet-title">補足６：ハザードマップ<span class="dot">。</span></p>
+    <p class="sheet-meta">店舗：<b id="metaStore">国会議事堂店</b>　／　所在地：<b id="metaAddr">　　　　　　　　　　</b>　／　作成日：<b id="metaDate"></b></p>
+  </div>
+  <div class="grid" id="grid"></div>
+  <p class="sheet-foot">
+    出典：ハザードマップポータルサイト（国土交通省・国土地理院）／背景地図：地理院タイル。②津波・④土砂崩れ・⑤水害(洪水)・⑥高潮は同サイトの配信タイルをリアルタイム表示。①地震・③液状化は各都道府県の被害想定資料等より取得した画像を掲載。
+  </p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var HAZARD_ATTR = '<a href="https://disaportal.gsi.go.jp/hazardmap/copyright/opendata.html" target="_blank">ハザードマップポータルサイト</a>';
+  var BASE_URL = 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
+  var BLANK = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+  var panels = [
+    {
+      id:'jishin', num:'①', title:'地震', type:'upload', color:'var(--c-jishin)', colorHex:'#FF5D73',
+      cond:'都心南部直下地震',
+      hint:'都道府県の被害想定サイトで震度分布を表示し、スクリーンショットを読み込ませてください。',
+      links:[
+        {label:'東京都', url:'https://www.higaisoutei.metro.tokyo.lg.jp/eqmap/eqmapgis.html'},
+        {label:'神奈川県', url:'https://www2.wagmap.jp/pref-kanagawa/Portal?mid=39'}
+      ]
+    },
+    {
+      id:'tsunami', num:'②', title:'津波', type:'map', color:'var(--c-tsunami)', colorHex:'#1FA7C9', cond:'',
+      urls:['https://disaportaldata.gsi.go.jp/raster/04_tsunami_newlegend_data/{z}/{x}/{y}.png']
+    },
+    {
+      id:'ekijouka', num:'③', title:'液状化', type:'upload', color:'var(--c-ekijouka)', colorHex:'#F2B233',
+      cond:'強(建物傾斜、下水道使用不可)',
+      hint:'重ねるハザードマップの「地形区分に基づく液状化の発生傾向図」を表示し、スクリーンショットを読み込ませてください。',
+      links:[{label:'重ねるハザードマップ（液状化）を開く', urlTemplate:'https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll={lat},{lng}&z=15&base=pale&ls=ekijouka_zenkoku,0.8&disp=1&vs=c1j0l0u0t0h0z0'}]
+    },
+    {
+      id:'dosha', num:'④', title:'土砂崩れ', type:'map', color:'var(--c-dosha)', colorHex:'#E8763A',
+      cond:'施設までの道路が土砂災害のリスク　無し',
+      urls:[
+        'https://disaportaldata.gsi.go.jp/raster/05_dosekiryukeikaikuiki/{z}/{x}/{y}.png',
+        'https://disaportaldata.gsi.go.jp/raster/05_kyukeishakeikaikuiki/{z}/{x}/{y}.png',
+        'https://disaportaldata.gsi.go.jp/raster/05_jisuberikeikaikuiki/{z}/{x}/{y}.png'
+      ]
+    },
+    {
+      id:'suigai', num:'⑤', title:'水害(洪水)', type:'map', color:'var(--c-suigai)', colorHex:'#3E6FE0',
+      cond:'浸水深さ：0.5～3m',
+      urls:['https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png']
+    },
+    {
+      id:'takashio', num:'⑥', title:'高潮、溜池等', type:'map', color:'var(--c-takashio)', colorHex:'#26B99A',
+      cond:'浸水深さ：5～10m',
+      urls:['https://disaportaldata.gsi.go.jp/raster/03_hightide_l2_shinsuishin_data/{z}/{x}/{y}.png']
+    }
+  ];
+
+  var grid = document.getElementById('grid');
+  var mapInstances = {};
+  var lastCoord = null;
+
+  function esc(s){ return (s||'').replace(/"/g,'&quot;'); }
+
+  // build 3 explicit rows of 2 panels each: [①②] [③④] [⑤⑥]
+  for (var r = 0; r < 3; r++){
+    var rowEl = document.createElement('div');
+    rowEl.className = 'row';
+    grid.appendChild(rowEl);
+
+    [panels[r*2], panels[r*2+1]].forEach(function(p){
+      var panel = document.createElement('div');
+      panel.className = 'panel';
+      panel.style.setProperty('--pc', p.color);
+
+      var body;
+      if (p.type === 'map'){
+        body = '<div class="panel-body">' +
+                 '<div class="leafmap" id="map_'+p.id+'"></div>' +
+                 '<div class="placeholder" id="ph_'+p.id+'">住所を検索すると表示されます</div>' +
+               '</div>';
+      } else {
+        body = '<div class="panel-body"><div class="upload-slot" id="up_'+p.id+'"></div></div>';
+      }
+
+      panel.innerHTML =
+        '<div class="panel-head"><span class="badge-num">'+p.num.replace(/[①-⑥]/, function(c){
+          var map={'①':'1','②':'2','③':'3','④':'4','⑤':'5','⑥':'6'}; return map[c]||c;
+        })+'</span>'+p.title+'</div>' +
+        '<div class="panel-cond"><span class="cond-label">条件</span>' +
+          '<input type="text" value="'+esc(p.cond)+'" id="cond_'+p.id+'"></div>' +
+        body;
+
+      rowEl.appendChild(panel);
+      if (p.type === 'upload') renderDropZone(p);
+    });
+  }
+
+  // ---------- upload panels ----------
+  function renderDropZone(p){
+    var slot = document.getElementById('up_'+p.id);
+    var linkHtml = (p.links||[]).map(function(l){
+      return '<a href="'+(l.url||'#')+'" target="_blank" rel="noopener" class="ext-link" data-tpl="'+(l.urlTemplate||'')+'">'+l.label+'</a>';
+    }).join('　');
+
+    slot.innerHTML =
+      '<div class="drop-zone" id="dz_'+p.id+'">' +
+        '<span class="dz-btn">画像を読み込む</span>' +
+        '<span class="dz-hint">'+p.hint+'</span>' +
+        (linkHtml ? '<span class="dz-link">'+linkHtml+'</span>' : '') +
+        '<input type="file" accept="image/*" id="file_'+p.id+'" style="display:none;">' +
+      '</div>';
+
+    var dz = document.getElementById('dz_'+p.id);
+    var fi = document.getElementById('file_'+p.id);
+
+    dz.addEventListener('click', function(e){
+      if (e.target.tagName === 'A') return;
+      fi.click();
+    });
+    fi.addEventListener('change', function(){ if (fi.files[0]) loadImage(p, fi.files[0]); });
+
+    dz.addEventListener('dragover', function(e){ e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', function(){ dz.classList.remove('dragover'); });
+    dz.addEventListener('drop', function(e){
+      e.preventDefault(); dz.classList.remove('dragover');
+      var f = e.dataTransfer.files[0];
+      if (f && f.type.indexOf('image') === 0) loadImage(p, f);
+    });
+
+    applyDeepLinks();
+  }
+
+  function loadImage(p, file){
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      var slot = document.getElementById('up_'+p.id);
+      slot.innerHTML = '<img src="'+ev.target.result+'" alt="'+p.title+'">' +
+                       '<button class="replace-btn" id="rep_'+p.id+'">差し替え</button>';
+      document.getElementById('rep_'+p.id).addEventListener('click', function(){ renderDropZone(p); });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  var hoverUploadPanel = null;
+  document.addEventListener('mouseover', function(e){
+    var dz = e.target.closest ? e.target.closest('.upload-slot') : null;
+    if (dz) hoverUploadPanel = dz.id.replace('up_','');
+  });
+  document.addEventListener('paste', function(e){
+    if (!hoverUploadPanel) return;
+    var items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (var i=0;i<items.length;i++){
+      if (items[i].type.indexOf('image') === 0){
+        var p = panels.filter(function(x){ return x.id === hoverUploadPanel; })[0];
+        if (p) loadImage(p, items[i].getAsFile());
+        e.preventDefault();
+        break;
+      }
+    }
+  });
+
+  function applyDeepLinks(){
+    if (!lastCoord) return;
+    document.querySelectorAll('.ext-link[data-tpl]').forEach(function(a){
+      var tpl = a.getAttribute('data-tpl');
+      if (tpl) a.href = tpl.replace('{lat}', lastCoord[0]).replace('{lng}', lastCoord[1]);
+    });
+  }
+
+  // ---------- map panels ----------
+  function ensureMap(p, lat, lng){
+    if (mapInstances[p.id]) return mapInstances[p.id];
+    var m = L.map(document.getElementById('map_'+p.id), {
+      zoomControl:false, attributionControl:true, dragging:true, scrollWheelZoom:true
+    }).setView([lat,lng], 15);
+    L.tileLayer(BASE_URL, {maxZoom:18, attribution:'地理院タイル'}).addTo(m);
+    p.urls.forEach(function(u){
+      L.tileLayer(u, {maxZoom:17, minZoom:2, opacity:0.75, errorTileUrl:BLANK, attribution:HAZARD_ATTR}).addTo(m);
+    });
+    mapInstances[p.id] = {map:m, marker:null};
+    return mapInstances[p.id];
+  }
+
+  function updateMaps(lat, lng, label){
+    panels.forEach(function(p){
+      if (p.type !== 'map') return;
+      var ph = document.getElementById('ph_'+p.id);
+      if (ph) ph.style.display = 'none';
+      var inst = ensureMap(p, lat, lng);
+      inst.map.setView([lat,lng], 15);
+      if (inst.marker) inst.map.removeLayer(inst.marker);
+      inst.marker = L.circleMarker([lat,lng], {radius:6, color:'#20263A', weight:2, fillColor:'#FFC93C', fillOpacity:.95}).addTo(inst.map);
+      setTimeout(function(){ inst.map.invalidateSize(); }, 80);
+    });
+  }
+
+  // ---------- meta ----------
+  var d = new Date();
+  document.getElementById('metaDate').textContent =
+    d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日';
+
+  document.getElementById('storeName').addEventListener('input', function(){
+    document.getElementById('metaStore').textContent = this.value.trim() || '　　　　　　';
+  });
+
+  // ---------- search ----------
+  var status = document.getElementById('searchStatus');
+  function doSearch(){
+    var q = document.getElementById('addressInput').value.trim();
+    if (!q) return;
+    status.className = ''; status.textContent = '検索中…';
+    fetch('https://msearch.gsi.go.jp/address-search/AddressSearch?q=' + encodeURIComponent(q))
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (!data || !data.length){
+          status.className='err'; status.textContent='該当住所なし。表記を変えて再検索してください。'; return;
+        }
+        var t = data[0];
+        var lng = t.geometry.coordinates[0], lat = t.geometry.coordinates[1];
+        lastCoord = [lat, lng];
+        document.getElementById('metaAddr').textContent = q;
+        updateMaps(lat, lng, t.properties.title || q);
+        applyDeepLinks();
+        status.className='ok'; status.textContent='表示：' + (t.properties.title || q);
+      })
+      .catch(function(){
+        status.className='err'; status.textContent='検索に失敗しました。通信環境をご確認ください。';
+      });
+  }
+  document.getElementById('searchBtn').addEventListener('click', doSearch);
+  document.getElementById('addressInput').addEventListener('keydown', function(e){
+    if (e.key === 'Enter'){ e.preventDefault(); doSearch(); }
+  });
+
+  // 公開デモ用：初期表示時に既定の住所（国会議事堂）で自動検索
+  doSearch();
+
+  // ---------- print ----------
+  document.getElementById('printBtn').addEventListener('click', function(){
+    Object.keys(mapInstances).forEach(function(id){ mapInstances[id].map.invalidateSize(); });
+    setTimeout(function(){ window.print(); }, 200);
+  });
+  window.addEventListener('beforeprint', function(){
+    Object.keys(mapInstances).forEach(function(id){ mapInstances[id].map.invalidateSize(); });
+  });
+  // ---------- filename helper ----------
+  function todayStr(){
+    var d = new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function baseFilename(){
+    var store = document.getElementById('storeName').value.trim() || 'ハザードマップ';
+    return 'ハザードマップ_'+store+'_'+todayStr();
+  }
+  function downloadBlob(blob, filename){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+  }
+
+  // ---------- PDF export (one-click download, no print dialog) ----------
+  var pdfBtn = document.getElementById('pdfBtn');
+  pdfBtn.addEventListener('click', function(){
+    pdfBtn.disabled = true; var orig = pdfBtn.textContent; pdfBtn.textContent = '作成中…';
+    Object.keys(mapInstances).forEach(function(id){ mapInstances[id].map.invalidateSize(); });
+    setTimeout(function(){
+      html2canvas(document.getElementById('sheet'), {scale:2, useCORS:true, backgroundColor:'#ffffff'})
+        .then(function(canvas){
+          var imgData = canvas.toDataURL('image/jpeg', 0.93);
+          var jsPDFCtor = window.jspdf.jsPDF;
+          var pdf = new jsPDFCtor('p', 'mm', 'a4');
+          pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+          pdf.save(baseFilename() + '.pdf');
+        })
+        .catch(function(err){
+          console.error(err);
+          alert('PDFの作成に失敗しました。地図タイルの読み込み元が外部サイトのため発生することがあります。お手数ですが「A4で印刷」→「PDFに保存」をお試しください。');
+        })
+        .finally(function(){ pdfBtn.disabled = false; pdfBtn.textContent = orig; });
+    }, 150);
+  });
+
+  // ---------- Excel export ----------
+  var xlsxBtn = document.getElementById('xlsxBtn');
+
+  function dataURLtoBase64(dataUrl){
+    return dataUrl.split(',')[1];
+  }
+
+  function capturePanelImage(p){
+    // upload panels: reuse the already-loaded data URL directly (no CORS risk)
+    if (p.type === 'upload'){
+      var img = document.querySelector('#up_'+p.id+' img');
+      if (!img) return Promise.resolve(null);
+      return Promise.resolve({dataUrl: img.src, w: img.naturalWidth || 800, h: img.naturalHeight || 500});
+    }
+    // map panels: snapshot via html2canvas
+    var mapEl = document.getElementById('map_'+p.id);
+    if (!mapEl || !mapInstances[p.id]) return Promise.resolve(null);
+    return html2canvas(mapEl, {scale:1.5, useCORS:true, backgroundColor:'#eceee7'})
+      .then(function(canvas){
+        return {dataUrl: canvas.toDataURL('image/png'), w: canvas.width, h: canvas.height};
+      })
+      .catch(function(){ return null; });
+  }
+
+  xlsxBtn.addEventListener('click', function(){
+    xlsxBtn.disabled = true; var orig = xlsxBtn.textContent; xlsxBtn.textContent = '作成中…';
+
+    Promise.all(panels.map(capturePanelImage)).then(function(images){
+      var wb = new ExcelJS.Workbook();
+      wb.creator = 'ハザードマップ レポート作成ツール';
+      var ws = wb.addWorksheet('補足６　ハザードマップ', {
+        pageSetup:{paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:1}
+      });
+
+      // column widths: 12 columns, 6 per panel width
+      for (var c=1; c<=12; c++){ ws.getColumn(c).width = 8.2; }
+
+      ws.mergeCells('A1:L1');
+      ws.getCell('A1').value = '補足６：ハザードマップ';
+      ws.getCell('A1').font = {name:'Meiryo UI', size:16, bold:true};
+
+      ws.mergeCells('A2:L2');
+      var storeVal = document.getElementById('storeName').value.trim() || '（未入力）';
+      var addrVal = document.getElementById('metaAddr').textContent.trim() || '（未入力）';
+      ws.getCell('A2').value = '店舗：'+storeVal+'　／　所在地：'+addrVal+'　／　作成日：'+document.getElementById('metaDate').textContent;
+      ws.getCell('A2').font = {name:'Meiryo UI', size:10, color:{argb:'FF5B6472'}};
+
+      var startRow = 4;
+      var rowsPerPanel = 16; // header(1) + cond(1) + image(14)
+      var gapRows = 1;
+
+      function hexToArgb(hex){
+        // accepts "#RRGGBB"
+        return 'FF' + hex.replace('#','').toUpperCase();
+      }
+
+      for (var r = 0; r < 3; r++){
+        var rowTop = startRow + r * (rowsPerPanel + gapRows);
+        [0,1].forEach(function(cIdx){
+          var p = panels[r*2 + cIdx];
+          var colStart = cIdx === 0 ? 1 : 7;   // A or G
+          var colEnd   = cIdx === 0 ? 6 : 12;  // F or L
+          var colStartL = ws.getColumn(colStart).letter;
+          var colEndL   = ws.getColumn(colEnd).letter;
+
+          // head row
+          var headRange = colStartL+rowTop+':'+colEndL+rowTop;
+          ws.mergeCells(headRange);
+          var headCell = ws.getCell(colStartL+rowTop);
+          headCell.value = p.num + '　' + p.title;
+          headCell.font = {name:'Meiryo UI', size:11, bold:true, color:{argb:'FFFFFFFF'}};
+          headCell.alignment = {vertical:'middle', horizontal:'left', indent:1};
+          headCell.fill = {type:'pattern', pattern:'solid', fgColor:{argb: hexToArgb(p.colorHex)}};
+
+          // condition row
+          var condRow = rowTop+1;
+          var condRange = colStartL+condRow+':'+colEndL+condRow;
+          ws.mergeCells(condRange);
+          var condCell = ws.getCell(colStartL+condRow);
+          var condInput = document.getElementById('cond_'+p.id);
+          condCell.value = '条件：' + (condInput ? condInput.value : '');
+          condCell.font = {name:'Meiryo UI', size:9, bold:true, color:{argb: hexToArgb(p.colorHex)}};
+          condCell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFBFBF7'}};
+
+          // image area border box
+          var imgTopRow = rowTop+2;
+          var imgBottomRow = rowTop + rowsPerPanel - 1;
+          for (var rowI = imgTopRow; rowI <= imgBottomRow; rowI++){
+            ws.getRow(rowI).height = 15;
+          }
+          var boxRange = colStartL+imgTopRow+':'+colEndL+imgBottomRow;
+          ws.mergeCells(boxRange);
+          var boxCell = ws.getCell(colStartL+imgTopRow);
+          boxCell.border = {
+            top:{style:'medium', color:{argb: hexToArgb(p.colorHex)}},
+            left:{style:'medium', color:{argb: hexToArgb(p.colorHex)}},
+            right:{style:'medium', color:{argb: hexToArgb(p.colorHex)}},
+            bottom:{style:'medium', color:{argb: hexToArgb(p.colorHex)}}
+          };
+
+          var imgInfo = images[r*2 + cIdx];
+          if (imgInfo && imgInfo.dataUrl){
+            var ext = imgInfo.dataUrl.indexOf('image/png') !== -1 ? 'png' : 'jpeg';
+            var imgId = wb.addImage({base64: dataURLtoBase64(imgInfo.dataUrl), extension: ext});
+            // approximate placement matching merged box; ExcelJS uses 0-indexed row/col
+            ws.addImage(imgId, {
+              tl: {col: colStart-1 + 0.15, row: imgTopRow-1 + 0.15},
+              br: {col: colEnd + -0.15, row: imgBottomRow + -0.15}
+            });
+          } else {
+            boxCell.value = '（画像未取得）';
+            boxCell.alignment = {vertical:'middle', horizontal:'center', wrapText:true};
+            boxCell.font = {name:'Meiryo UI', size:9, italic:true, color:{argb:'FF5B6472'}};
+          }
+        });
+      }
+
+      var footRow = startRow + 3*(rowsPerPanel+gapRows) + 1;
+      ws.mergeCells('A'+footRow+':L'+footRow);
+      ws.getCell('A'+footRow).value =
+        '出典：ハザードマップポータルサイト（国土交通省・国土地理院）／背景地図：地理院タイル。②③④⑤は同サイトの配信タイルを表示。①③は各都道府県の被害想定資料等より取得した画像を掲載。';
+      ws.getCell('A'+footRow).font = {name:'Meiryo UI', size:8, color:{argb:'FF5B6472'}};
+      ws.getCell('A'+footRow).alignment = {wrapText:true};
+
+      return wb.xlsx.writeBuffer();
+    }).then(function(buffer){
+      var blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      downloadBlob(blob, baseFilename()+'.xlsx');
+    }).catch(function(err){
+      console.error(err);
+      alert('Excelファイルの作成に失敗しました。もう一度お試しいただくか、印刷（PDF保存）をご利用ください。');
+    }).finally(function(){
+      xlsxBtn.disabled = false; xlsxBtn.textContent = orig;
+    });
+  });
+})();
+</script>
+</body>
+</html>
