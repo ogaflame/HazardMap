@@ -526,27 +526,32 @@
       meshLayer = L.layerGroup().addTo(m);
     }
     mapInstances[p.id] = {map:m, marker:null, meshLayer:meshLayer, dataFound:false};
+    if (p.type === 'mesh'){
+      // 地図を動かす／拡大縮小するたびに、今見えている範囲でメッシュを描き直す（枠の切替は行わない）
+      m.on('moveend zoomend', function(){
+        redrawEkijoukaForCurrentView(p, mapInstances[p.id], false);
+      });
+    }
     return mapInstances[p.id];
   }
 
-  function renderEkijoukaMesh(p, inst, lat, lng){
-    inst.meshLayer.clearLayers();
-    inst.dataFound = false;
+  function redrawEkijoukaForCurrentView(p, inst, allowFallback){
     loadEkijoukaData(p.dataUrl).then(function(rows){
-      // 250mメッシュ ≒ 緯度0.00225°・経度0.0027°、周辺 約1.3km四方を抽出
-      var dLat = 0.012, dLon = 0.015;
-      var half = 0.00135; // セルの半分の目安（緯度）
-      var halfLon = 0.00165;
+      var b = inst.map.getBounds().pad(0.15); // 少し余裕を持たせる
+      var half = 0.00135, halfLon = 0.00165;
       var hits = rows.filter(function(row){
-        return Math.abs(row[0]-lat) < dLat && Math.abs(row[1]-lng) < dLon;
+        return b.contains([row[0], row[1]]);
       });
+      inst.meshLayer.clearLayers();
       if (!hits.length){
-        inst.dataFound = false;
-        showMeshFallback(p, true);
+        if (allowFallback){
+          inst.dataFound = false;
+          showMeshFallback(p, true);
+        }
         return;
       }
       inst.dataFound = true;
-      showMeshFallback(p, false);
+      if (allowFallback) showMeshFallback(p, false);
       hits.forEach(function(row){
         var la = row[0], lo = row[1], pl = row[2];
         var bounds = [[la-half, lo-halfLon],[la+half, lo+halfLon]];
@@ -555,6 +560,10 @@
         }).bindPopup(ekijoukaLabel(pl)).addTo(inst.meshLayer);
       });
     });
+  }
+
+  function renderEkijoukaMesh(p, inst, lat, lng){
+    redrawEkijoukaForCurrentView(p, inst, true);
   }
 
   function showMeshFallback(p, show){
