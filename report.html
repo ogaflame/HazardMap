@@ -692,21 +692,27 @@
     return dataUrl.split(',')[1];
   }
 
-  function capturePanelImage(p){
-    // upload panels: reuse the already-loaded data URL directly (no CORS risk)
+  function capturePanelImageFromMaster(p, masterCanvas, masterScale, sheetRect){
+    // upload panels (またはmesh型でデータ無しのフォールバック中): 読み込み済みのdata URLをそのまま使う
     if (p.type === 'upload' || (p.type === 'mesh' && mapInstances[p.id] && !mapInstances[p.id].dataFound)){
       var img = document.querySelector('#up_'+p.id+' img');
-      if (!img) return Promise.resolve(null);
-      return Promise.resolve({dataUrl: img.src, w: img.naturalWidth || 800, h: img.naturalHeight || 500});
+      if (!img) return null;
+      return {dataUrl: img.src, w: img.naturalWidth || 800, h: img.naturalHeight || 500};
     }
-    // map / mesh(自動描画) panels: snapshot via html2canvas
+    // map / mesh(自動描画) panels: 用紙全体のキャプチャから該当エリアを切り出す
     var mapEl = document.getElementById('map_'+p.id);
-    if (!mapEl || !mapInstances[p.id]) return Promise.resolve(null);
-    return html2canvas(mapEl, {scale:1.5, useCORS:true, backgroundColor:'#eceee7'})
-      .then(function(canvas){
-        return {dataUrl: canvas.toDataURL('image/png'), w: canvas.width, h: canvas.height};
-      })
-      .catch(function(){ return null; });
+    if (!mapEl || !mapInstances[p.id]) return null;
+    var r = mapEl.getBoundingClientRect();
+    var sx = (r.left - sheetRect.left) * masterScale;
+    var sy = (r.top - sheetRect.top) * masterScale;
+    var sw = r.width * masterScale;
+    var sh = r.height * masterScale;
+    if (sw <= 0 || sh <= 0) return null;
+    var tmp = document.createElement('canvas');
+    tmp.width = sw; tmp.height = sh;
+    var ctx = tmp.getContext('2d');
+    ctx.drawImage(masterCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+    return {dataUrl: tmp.toDataURL('image/png'), w: sw, h: sh};
   }
 
   xlsxBtn.addEventListener('click', function(){
@@ -715,7 +721,16 @@
     Object.keys(mapInstances).forEach(function(id){ mapInstances[id].map.invalidateSize(); });
 
     new Promise(function(resolve){ setTimeout(resolve, 150); }).then(function(){
-      return Promise.all(panels.map(capturePanelImage));
+      var sheetEl = document.getElementById('sheet');
+      var sheetRect = sheetEl.getBoundingClientRect();
+      var masterScale = 2;
+      return html2canvas(sheetEl, {scale:masterScale, useCORS:true, backgroundColor:'#ffffff'})
+        .then(function(masterCanvas){
+          var images = panels.map(function(p){
+            return capturePanelImageFromMaster(p, masterCanvas, masterScale, sheetRect);
+          });
+          return images;
+        });
     }).then(function(images){
       var wb = new ExcelJS.Workbook();
       wb.creator = 'ハザードマップ レポート作成ツール';
