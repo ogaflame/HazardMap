@@ -510,6 +510,22 @@
     return '危険度：極めて低い（PL='+pl+'）';
   }
 
+  // ---------- ②④⑤⑥（タイル型パネル）の表示位置・縮尺を連動させる ----------
+  var mapSyncGroup = [];
+  var syncingMaps = false;
+  function attachMapSync(m){
+    mapSyncGroup.push(m);
+    m.on('moveend zoomend', function(){
+      if (syncingMaps) return;
+      syncingMaps = true;
+      var c = m.getCenter(), z = m.getZoom();
+      mapSyncGroup.forEach(function(other){
+        if (other !== m) other.setView(c, z, {animate:false});
+      });
+      syncingMaps = false;
+    });
+  }
+
   function ensureMap(p, lat, lng){
     if (mapInstances[p.id]) return mapInstances[p.id];
     var m = L.map(document.getElementById('map_'+p.id), {
@@ -521,6 +537,7 @@
       p.urls.forEach(function(u){
         L.tileLayer(u, {maxZoom:17, minZoom:2, opacity:0.75, errorTileUrl:BLANK, attribution:HAZARD_ATTR}).addTo(m);
       });
+      attachMapSync(m);
     }
     var meshLayer = null;
     if (p.type === 'mesh'){
