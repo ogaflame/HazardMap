@@ -344,7 +344,7 @@
     },
     {
       id:'dosha', num:'④', title:'土砂崩れ', type:'map', color:'var(--c-dosha)', colorHex:'#E8763A',
-      cond:'施設までの道路が土砂災害のリスク　無し',
+      cond:'検索地点は土砂災害警戒区域外',
       urls:[
         'https://disaportaldata.gsi.go.jp/raster/05_dosekiryukeikaikuiki/{z}/{x}/{y}.png',
         'https://disaportaldata.gsi.go.jp/raster/05_kyukeishakeikaikuiki/{z}/{x}/{y}.png',
@@ -613,6 +613,94 @@
         setTimeout(function(){ inst.map.invalidateSize(); inst.map.setView([lat,lng], 15); }, ms);
       });
     });
+    autoFillConditions(lat, lng);
+  }
+
+  // ---------- ②④⑤⑥ 条件文の自動判定（タイルのピクセル色から推定） ----------
+  function tileAndPixel(lon, lat, z){
+    var n = Math.pow(2, z);
+    var xf = (lon + 180) / 360 * n;
+    var latRad = lat * Math.PI / 180;
+    var yf = (1 - Math.log(Math.tan(latRad) + 1/Math.cos(latRad)) / Math.PI) / 2 * n;
+    var x = Math.floor(xf), y = Math.floor(yf);
+    return {x:x, y:y, px:Math.floor((xf-x)*256), py:Math.floor((yf-y)*256)};
+  }
+
+  function sampleTilePixel(urlTemplate, lat, lng, zoom){
+    return new Promise(function(resolve){
+      var t = tileAndPixel(lng, lat, zoom);
+      var url = urlTemplate.replace('{z}', zoom).replace('{x}', t.x).replace('{y}', t.y);
+      var img = new Image();
+      img.crossOrigin = 'anonymous';
+      var done = false;
+      var timer = setTimeout(function(){ if (!done){ done = true; resolve(null); } }, 4000);
+      img.onload = function(){
+        if (done) return; done = true; clearTimeout(timer);
+        try{
+          var c = document.createElement('canvas');
+          c.width = 256; c.height = 256;
+          var ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          var d = ctx.getImageData(t.px, t.py, 1, 1).data;
+          resolve({r:d[0], g:d[1], b:d[2], a:d[3]});
+        }catch(e){
+          resolve(null); // CORS等で読み取れない場合
+        }
+      };
+      img.onerror = function(){ if (!done){ done = true; clearTimeout(timer); resolve(null); } };
+      img.src = url;
+    });
+  }
+
+  // 「浸水ランク配色ガイドライン」の代表的なRGB値（詳細8段階）
+  var FLOOD_RANKS = [
+    {rgb:[255,255,179], label:'浸水深さ：0.0～0.5m'},
+    {rgb:[247,245,169], label:'浸水深さ：0.0～0.5m'},
+    {rgb:[248,225,166], label:'浸水深さ：0.5～3.0m'},
+    {rgb:[255,216,192], label:'浸水深さ：0.5～3.0m'},
+    {rgb:[255,183,183], label:'浸水深さ：3.0～5.0m'},
+    {rgb:[255,145,145], label:'浸水深さ：5.0～10.0m'},
+    {rgb:[242,133,201], label:'浸水深さ：10～20m'},
+    {rgb:[220,122,220], label:'浸水深さ：20m～'}
+  ];
+
+  function classifyFloodColor(px){
+    if (!px || px.a < 40) return '想定浸水なし（区域外）';
+    var best = null, bestDist = Infinity;
+    FLOOD_RANKS.forEach(function(r){
+      var d = Math.pow(px.r-r.rgb[0],2) + Math.pow(px.g-r.rgb[1],2) + Math.pow(px.b-r.rgb[2],2);
+      if (d < bestDist){ bestDist = d; best = r; }
+    });
+    if (bestDist > 4500) return null; // 色が離れすぎており自信が持てない場合は保留
+    return best.label;
+  }
+
+  function setCondValue(id, text){
+    if (!text) return;
+    var el = document.getElementById('cond_'+id);
+    if (el) el.value = text;
+  }
+
+  function autoFillConditions(lat, lng){
+    var zoom = 16;
+    // ②津波・⑤水害・⑥高潮：単一タイルの色から判定
+    ['tsunami','suigai','takashio'].forEach(function(id){
+      var p = panels.filter(function(x){ return x.id === id; })[0];
+      if (!p) return;
+      sampleTilePixel(p.urls[0], lat, lng, zoom).then(function(px){
+        var label = classifyFloodColor(px);
+        setCondValue(id, label);
+      });
+    });
+    // ④土砂崩れ：3レイヤーいずれかに色があれば「区域内」
+    var doshaP = panels.filter(function(x){ return x.id === 'dosha'; })[0];
+    if (doshaP){
+      Promise.all(doshaP.urls.map(function(u){ return sampleTilePixel(u, lat, lng, zoom); }))
+        .then(function(results){
+          var inZone = results.some(function(px){ return px && px.a >= 40; });
+          setCondValue('dosha', inZone ? '検索地点は土砂災害警戒区域内' : '検索地点は土砂災害警戒区域外');
+        });
+    }
   }
 
   // ---------- meta ----------
