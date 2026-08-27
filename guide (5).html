@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>使い方・仕組みについて｜ハザードマップ作成ツール</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=Noto+Sans+JP:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root{
+    --ink:#1c2430;
+    --ink-soft:#5b6472;
+    --paper:#EFF4EE;
+    --panel:#ffffff;
+    --line:#e1e4dc;
+    --line-soft:#ececE4;
+    --teal:#4B3FCB;
+    --teal-deep:#20263A;
+    --hazard:#FF5D73;
+    --ok:#26B99A;
+
+    --c-flood:#3E6FE0;
+    --c-naisui:#29B6D8;
+    --c-takashio:#26B99A;
+    --c-tsunami:#1FA7C9;
+    --c-dosekiryu:#E8763A;
+    --c-kyukeisha:#F2B233;
+    --c-jisuberi:#FF5D73;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:'Noto Sans JP',sans-serif; color:var(--ink); background:var(--paper);
+    -webkit-font-smoothing:antialiased; line-height:1.85;
+  }
+  .mono{font-family:'JetBrains Mono',monospace;}
+
+  .rainbow{ height:6px; display:flex; }
+  .rainbow span{flex:1;}
+  .rainbow span:nth-child(1){background:var(--c-jisuberi);}
+  .rainbow span:nth-child(2){background:var(--c-tsunami);}
+  .rainbow span:nth-child(3){background:var(--c-kyukeisha);}
+  .rainbow span:nth-child(4){background:var(--c-dosekiryu);}
+  .rainbow span:nth-child(5){background:var(--c-flood);}
+  .rainbow span:nth-child(6){background:var(--c-takashio);}
+
+  header{
+    background:var(--teal-deep); color:#f3f4ef;
+    padding:26px 24px 24px;
+  }
+  header .inner{ max-width:760px; margin:0 auto; display:flex; align-items:center; gap:16px; }
+  header svg{width:40px;height:40px;flex:0 0 auto;}
+  header h1{ font-family:'Kosugi Maru',sans-serif; font-weight:400; font-size:22px; margin:0; }
+  header .sub{ font-size:12px; color:#aab0c8; margin-top:4px; }
+
+  nav.backlinks{
+    max-width:760px; margin:14px auto 0; padding:0 24px;
+    display:flex; gap:10px;
+  }
+  nav.backlinks a{
+    font-size:12.5px; font-weight:700; color:var(--teal); text-decoration:none;
+    padding:6px 14px; border:1px solid var(--line); border-radius:999px; background:#fff;
+  }
+  nav.backlinks a:hover{border-color:var(--teal);}
+
+  main{ max-width:760px; margin:0 auto; padding:30px 24px 80px; }
+
+  .toc{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:18px 22px; margin-bottom:34px;
+  }
+  .toc p{ margin:0 0 8px; font-weight:700; font-size:13px; color:var(--ink-soft); letter-spacing:.04em; }
+  .toc ol{ margin:0; padding-left:20px; font-size:14px; }
+  .toc li{ margin-bottom:4px; }
+  .toc a{ color:var(--ink); text-decoration:none; }
+  .toc a:hover{ color:var(--teal); text-decoration:underline; }
+
+  section{ margin-bottom:44px; }
+  h2{
+    font-family:'Kosugi Maru',sans-serif; font-weight:400; font-size:19px;
+    border-bottom:2px solid var(--ink); padding-bottom:8px; margin:0 0 16px;
+    display:flex; align-items:center; gap:10px;
+  }
+  h2 .num{
+    width:26px;height:26px;border-radius:8px;background:var(--teal);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:0 0 auto;
+  }
+  h3{ font-size:15px; font-weight:700; margin:22px 0 8px; }
+  p{ margin:0 0 14px; font-size:14.5px; color:var(--ink); }
+  ul,ol{ font-size:14.5px; padding-left:22px; margin:0 0 14px; }
+  li{ margin-bottom:6px; }
+
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:16px 20px; margin:14px 0;
+  }
+  .card.warn{ border-color:#F0C89A; background:#FFF8EE; }
+  .card.warn b{ color:var(--hazard); }
+
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; margin:14px 0; }
+  th,td{ border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:#fafaf7; font-weight:700; }
+
+  .swatch{ display:inline-block; width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:middle; }
+
+  kbd{
+    font-family:'JetBrains Mono',monospace; background:#fff; border:1px solid var(--line);
+    border-bottom-width:2px; border-radius:5px; padding:2px 7px; font-size:12.5px;
+  }
+
+  a.ext{ color:var(--teal); font-weight:700; }
+
+  .linklist{ list-style:none; margin:0; padding:0; }
+  .linklist li{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:14px 18px; margin-bottom:10px;
+  }
+  .linklist a.linktitle{
+    font-weight:700; font-size:14.5px; color:var(--teal); text-decoration:none;
+  }
+  .linklist a.linktitle:hover{ text-decoration:underline; }
+  .linklist .desc{ font-size:13px; color:var(--ink-soft); margin-top:5px; }
+  .linklist .tag{
+    display:inline-block; font-size:10.5px; font-weight:700; color:#fff;
+    background:var(--ink-soft); border-radius:999px; padding:2px 9px; margin-left:8px;
+    vertical-align:middle;
+  }
+  .linklist .tag.unused{ background:var(--hazard); }
+
+  footer{
+    max-width:760px; margin:0 auto; padding:0 24px 60px; font-size:11.5px; color:var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+
+<div class="rainbow"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+<header>
+  <div class="inner">
+    <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+      <path d="M291.789,390.688L279.727,380.5c-8.844,10.531-13.203,22.906-15.344,34.125l15.5,2.938
+        C281.68,408.125,285.289,398.375,291.789,390.688z" fill="#ffffff"/>
+      <path d="M333.648,366.781l-9.297-12.75c-4.281,3.125-9.484,5.781-15.875,7.781c-5.141,1.594-9.781,3.656-13.938,6.125
+        l8.078,13.563c3.047-1.813,6.531-3.391,10.516-4.625C321.07,374.438,327.898,370.969,333.648,366.781z" fill="#ffffff"/>
+      <path d="M343.242,316.438c-0.406,9.297-3.031,19.219-8.891,27.469L347.242,353
+        c7.969-11.313,11.25-24.188,11.766-35.906L343.242,316.438z" fill="#ffffff"/>
+      <path d="M167.398,424.656c-2.313-12.188-7.219-22.719-13.453-31.625l-12.922,9.047v0.016
+        c5.125,7.313,9,15.688,10.875,25.5L167.398,424.656z" fill="#ffffff"/>
+      <path d="M116.148,360.203l-7.703,13.766c7.797,4.375,16.141,10.094,23.391,17.281l11.109-11.219
+        C134.367,371.563,124.883,365.094,116.148,360.203z" fill="#ffffff"/>
+      <path d="M511.805,477.844l-8.703-19.125L412.555,259.25H286.289c-1.703,3-3.25,5.844-5.047,8.906
+        c-4.859,8.313-9.359,15.844-13.531,22.656h69.859l-0.125,0.125c1.172,1.125,3.344,5.219,4.516,10.594l15.375-3.5
+        c-0.609-2.563-1.359-4.938-2.203-7.219h37.094l72.016,158.641H265.758l13.203-2.047l-0.016-0.125
+        c-0.109-0.844-0.703-5.344-0.703-11.719c0-0.813,0.016-1.641,0.031-2.5l-15.766-0.359c-0.031,0.984-0.031,1.922-0.031,2.859
+        c0,7.297,0.656,12.5,0.844,13.891h-94.906c0.25-2.578,0.422-5.109,0.453-7.578l-15.781-0.219c-0.031,2.5-0.234,5.125-0.531,7.797
+        H47.758l38.719-85.297c2.313,0.781,5.266,1.875,8.688,3.313l6.172-14.5c-3.156-1.344-5.938-2.406-8.313-3.25l26.75-58.906h38.844
+        c-4.156-6.813-8.656-14.344-13.531-22.656c-1.797-3.063-3.344-5.906-5.047-8.906H99.43L0.195,477.844
+        c-0.313,0.703-0.25,1.5,0.156,2.156c0.422,0.625,1.125,1,1.891,1h507.516c0.766,0,1.469-0.375,1.891-1
+        C512.055,479.344,512.117,478.547,511.805,477.844z" fill="#ffffff"/>
+      <path d="M213.164,340.656c5,0,105.156-146.406,105.156-204.5C318.32,78.094,271.242,31,213.164,31
+        c-58.094,0-105.172,47.094-105.172,105.156C107.992,194.25,208.164,340.656,213.164,340.656z M172.945,136.156
+        c0-22.219,18.016-40.219,40.219-40.219c22.219,0,40.234,18,40.234,40.219s-18.016,40.234-40.234,40.234
+        C190.961,176.391,172.945,158.375,172.945,136.156z" fill="#FF5D73"/>
+    </svg>
+    <div>
+      <h1>使い方・仕組みについて</h1>
+      <div class="sub">店舗ハザードマップ作成ツール（自由検索モード／会社様式モード）</div>
+    </div>
+  </div>
+</header>
+
+<nav class="backlinks">
+  <a href="index.html">← 自由検索モードへ</a>
+  <a href="report.html">← 会社様式モードへ</a>
+</nav>
+
+<main>
+
+  <div class="toc">
+    <p>目次</p>
+    <ol>
+      <li><a href="#overview">2つのモードについて</a></li>
+      <li><a href="#free">自由検索モードの使い方</a></li>
+      <li><a href="#report">会社様式モードの使い方</a></li>
+      <li><a href="#upload">①③：画像を手動で読み込む方法</a></li>
+      <li><a href="#auto">②④⑤⑥：条件欄の自動判定について</a></li>
+      <li><a href="#data">データの出典・仕組み</a></li>
+      <li><a href="#legend">ハザードマップの見方（色の意味）</a></li>
+      <li><a href="#faq">よくある質問・注意点</a></li>
+      <li><a href="#links">参考リンク集</a></li>
+    </ol>
+  </div>
+
+  <section id="overview">
+    <h2><span class="num">1</span>2つのモードについて</h2>
+    <p>このツールには2つの画面があります。</p>
+    <table>
+      <tr><th>画面</th><th>用途</th></tr>
+      <tr><td><b>自由検索モード</b>（index.html）</td><td>住所を検索し、洪水・内水・高潮・津波・土砂災害の各レイヤーを自由に重ねて確認するための画面。層の組み合わせや不透明度を自分で調整しながら地図を眺めたいときに使う。</td></tr>
+      <tr><td><b>会社様式モード</b>（report.html）</td><td>社内提出用の「補足６：ハザードマップ」の①〜⑥固定レイアウトを、住所検索から印刷・PDF・Excel出力まで一気通貫で作るための画面。日常的な店舗の書類作成はこちらを使う。</td></tr>
+    </table>
+    <p>画面上部の2つのボタンでいつでも切り替えられます。</p>
+  </section>
+
+  <section id="free">
+    <h2><span class="num">2</span>自由検索モードの使い方</h2>
+    <ol>
+      <li>左側の入力欄に住所を入れて「検索」</li>
+      <li>見たいレイヤーのチェックボックスをON（複数同時にON可）</li>
+      <li>各レイヤーの不透明度スライダーで見やすさを調整</li>
+      <li>背景地図は「淡色／標準／写真」から選択可能</li>
+      <li>右上の「この画面を印刷」でそのまま印刷・PDF保存</li>
+    </ol>
+    <p>表示できるレイヤーは以下の7種類です。</p>
+    <table>
+      <tr><th>レイヤー</th><th>内容</th></tr>
+      <tr><td><span class="swatch" style="background:var(--c-flood)"></span>水害（洪水）</td><td>想定最大規模の洪水浸水想定</td></tr>
+      <tr><td><span class="swatch" style="background:var(--c-naisui)"></span>内水（雨水出水）</td><td>一部市町村のみ配信</td></tr>
+      <tr><td><span class="swatch" style="background:var(--c-takashio)"></span>高潮</td><td>沿岸部の一部都道府県のみ配信</td></tr>
+      <tr><td><span class="swatch" style="background:var(--c-tsunami)"></span>津波</td><td>沿岸部の一部都道府県のみ配信</td></tr>
+      <tr><td><span class="swatch" style="background:var(--c-dosekiryu)"></span>土石流</td><td>土砂災害警戒区域</td></tr>
+      <tr><td><span class="swatch" style="background:var(--c-kyukeisha)"></span>急傾斜地の崩壊</td><td>土砂災害警戒区域</td></tr>
+      <tr><td><span class="swatch" style="background:var(--c-jisuberi)"></span>地すべり</td><td>土砂災害警戒区域</td></tr>
+    </table>
+  </section>
+
+  <section id="report">
+    <h2><span class="num">3</span>会社様式モードの使い方</h2>
+    <ol>
+      <li>上部に「店舗名」「住所」を入力し「この住所で表示」</li>
+      <li>②津波・④土砂崩れ・⑤水害(洪水)・⑥高潮の地図が自動表示される</li>
+      <li>①地震・③液状化は手動でスクリーンショットを読み込む（下記4章参照）</li>
+      <li>各パネル上部の「条件」欄は自動入力されるが、必ず目視で確認・修正する</li>
+      <li>右上の3ボタンで出力：<b>A4で印刷</b>（ブラウザの印刷機能）／<b>PDF保存</b>（ファイルとして直接ダウンロード）／<b>Excel保存</b>（.xlsx形式でダウンロード）</li>
+    </ol>
+    <div class="card">
+      <b>②④⑤⑥の地図は連動しています。</b>どれか1つをドラッグや拡大縮小で動かすと、残り3つも同じ位置・縮尺に揃います。
+    </div>
+  </section>
+
+  <section id="upload">
+    <h2><span class="num">4</span>①③：画像を手動で読み込む方法</h2>
+    <p>①地震・③液状化は、公的な埋め込み用データが存在しないため（6章で詳しく説明）、スクリーンショットを自分で読み込む必要があります。パネル内の「重ねるハザードマップを開く」「東京都」「神奈川県」などのリンクは、検索した住所の座標が自動で入った状態でポータルサイトを開きます。</p>
+    <h3>画像の読み込み方は3通り</h3>
+    <ol>
+      <li>枠をクリックしてファイルを選択</li>
+      <li>枠に画像ファイルをドラッグ＆ドロップ</li>
+      <li>枠にマウスカーソルを乗せた状態で <kbd>Ctrl</kbd> + <kbd>V</kbd> で貼り付け</li>
+    </ol>
+    <div class="card">
+      <b>Windowsでのスクリーンショットのコツ</b><br>
+      <kbd>Win</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd> で範囲を指定してスクリーンショットを撮ると、自動的にクリップボードにコピーされます。そのままツールの画面に戻り、枠にカーソルを乗せて<kbd>Ctrl</kbd>+<kbd>V</kbd>で貼り付ければ、ファイルを保存する手間なく完了します。
+    </div>
+  </section>
+
+  <section id="auto">
+    <h2><span class="num">5</span>②④⑤⑥：条件欄の自動判定について</h2>
+    <p>会社様式モードの②④⑤⑥の「条件」欄は、検索地点のハザードマップタイル画像のピクセル色を読み取り、国土交通省の「浸水ランク配色ガイドライン」の正式なRGB値と照合して、最も近い浸水深ランクを自動入力しています。④土砂崩れは、3つの警戒区域レイヤー（土石流・急傾斜地・地すべり）のいずれかに色があるかどうかで「区域内／区域外」を判定しています。</p>
+    <div class="card warn">
+      <b>あくまで「たたき台」です。</b>色の判定に自信が持てない場合は書き換えず既存の文言のまま残る仕様になっていますが、通信環境やタイルの読み込み状況によって判定が外れることもあります。提出前に必ず地図と条件欄を見比べて、目視で確認・修正してください。
+    </div>
+    <p>①地震・③液状化は、そもそも自動表示していない（データを読み込んでいない）ため、条件欄も自動入力されません。空欄のまま、必要に応じて手入力してください。</p>
+  </section>
+
+  <section id="data">
+    <h2><span class="num">6</span>データの出典・仕組み</h2>
+    <h3>②④⑤⑥（自動表示）</h3>
+    <p>国土交通省・国土地理院が公開する「ハザードマップポータルサイト」のオープンデータ配信タイルを、リアルタイムに読み込んで表示しています。背景地図は国土地理院の地理院タイル、住所検索は地理院地図の住所検索API（協力：東大CSIS）を使用しています。</p>
+    <h3>①地震・③液状化（手動アップロード）</h3>
+    <p>以下の理由により、自動での埋め込み表示ができません。</p>
+    <ul>
+      <li><b>地震（震度分布）</b>：都道府県ごとに異なる被害想定システムで提供されており、統一的な埋め込み用データが存在しない。東京都・神奈川県は個別サイトへのリンクを用意している。</li>
+      <li><b>液状化（地形区分に基づく発生傾向図）</b>：重ねるハザードマップ上でのみ閲覧可能で、埋め込み用の公開タイルURLが存在しない。</li>
+    </ul>
+    <h3>ライセンス・出典表記</h3>
+    <p>本ツールは「ハザードマップポータルサイト」のコンテンツ利用規約（公共データ利用規約 第1.0版）に基づき、出典の明示および加工した旨の明記を行っています。詳細は会社様式モードの用紙下部（印刷・PDF・Excelにも反映）をご確認ください。</p>
+  </section>
+
+  <section id="legend">
+    <h2><span class="num">7</span>ハザードマップの見方（色の意味）</h2>
+
+    <h3>②⑤⑥：浸水深の色分け</h3>
+    <p>②津波・⑤水害(洪水)・⑥高潮は、色の濃さ・種類で浸水の深さを表す「浸水ランク配色ガイドライン」に沿って着色されています。5章の自動判定もこの色を基準にしているので、地図の色と条件欄の記載が合っているか、下表と見比べて確認できます。</p>
+    <table>
+      <tr><th style="width:90px;">色</th><th>浸水深の目安</th></tr>
+      <tr><td><span class="swatch" style="background:#F7F5A9;width:22px;height:14px;"></span></td><td>0.0～0.5m（大人の膝までつかる程度）</td></tr>
+      <tr><td><span class="swatch" style="background:#FFD8C0;width:22px;height:14px;"></span></td><td>0.5～3.0m（1階天井までつかる程度）</td></tr>
+      <tr><td><span class="swatch" style="background:#FFB7B7;width:22px;height:14px;"></span></td><td>3.0～5.0m（2階部分までつかる程度）</td></tr>
+      <tr><td><span class="swatch" style="background:#FF9191;width:22px;height:14px;"></span></td><td>5.0～10.0m（2階の屋根以上がつかる）</td></tr>
+      <tr><td><span class="swatch" style="background:#F285C9;width:22px;height:14px;"></span></td><td>10～20m</td></tr>
+      <tr><td><span class="swatch" style="background:#DC7ADC;width:22px;height:14px;"></span></td><td>20m～</td></tr>
+      <tr><td>（無色）</td><td>想定される浸水なし（区域外）</td></tr>
+    </table>
+
+    <h3>④：土砂災害警戒区域の色分け</h3>
+    <p>④土砂崩れは、色の濃さではなく色の種類で警戒レベルが変わります。</p>
+    <table>
+      <tr><th style="width:90px;">色</th><th>意味</th></tr>
+      <tr><td><span class="swatch" style="background:#FFE873;width:22px;height:14px;"></span></td><td>土砂災害警戒区域（イエローゾーン）</td></tr>
+      <tr><td><span class="swatch" style="background:#FF4D4D;width:22px;height:14px;"></span></td><td>土砂災害特別警戒区域（レッドゾーン）</td></tr>
+      <tr><td>（無色）</td><td>区域外</td></tr>
+    </table>
+    <p style="font-size:12.5px;color:var(--ink-soft);">※本ツールの自動判定（5章）は「区域内／区域外」のみを判定しており、イエロー／レッドの区別まではしていません。詳しい警戒レベルは地図の色を目視で確認してください。</p>
+
+    <h3>①：震度分布の色分け（気象庁の震度階級）</h3>
+    <p>東京都・神奈川県等の被害想定サイトで表示される震度分布は、気象庁の震度階級（10段階）を色分けしたものです。一般的な配色は以下の通りです（サイトによって多少の違いがあります）。</p>
+    <table>
+      <tr><th style="width:90px;">色</th><th>震度</th></tr>
+      <tr><td><span class="swatch" style="background:#F08CA0;width:22px;height:14px;"></span></td><td>7</td></tr>
+      <tr><td><span class="swatch" style="background:#F2B26B;width:22px;height:14px;"></span></td><td>6強</td></tr>
+      <tr><td><span class="swatch" style="background:#F5E96B;width:22px;height:14px;"></span></td><td>6弱</td></tr>
+      <tr><td><span class="swatch" style="background:#8FCB7E;width:22px;height:14px;"></span></td><td>5強</td></tr>
+      <tr><td><span class="swatch" style="background:#8FE0E0;width:22px;height:14px;"></span></td><td>5弱</td></tr>
+      <tr><td><span class="swatch" style="background:#D8EEF7;width:22px;height:14px;"></span></td><td>4</td></tr>
+      <tr><td><span class="swatch" style="background:#FFFFFF;border:1px solid var(--line);width:22px;height:14px;"></span></td><td>3以下</td></tr>
+    </table>
+
+    <h3>③：液状化の色分け（地形区分に基づく発生傾向）</h3>
+    <p>重ねるハザードマップの液状化レイヤーは、その土地がもともとどんな地形だったか（埋立地・扇状地・山地など）によって、液状化のしやすさを5段階で色分けしています。</p>
+    <table>
+      <tr><th style="width:90px;">色</th><th>地形の例</th><th>傾向</th></tr>
+      <tr><td><span class="swatch" style="background:#C427E0;width:22px;height:14px;"></span></td><td>埋立地や旧河道など</td><td>強</td></tr>
+      <tr><td><span class="swatch" style="background:#F03A2E;width:22px;height:14px;"></span></td><td>干拓地や自然堤防など</td><td>↑</td></tr>
+      <tr><td><span class="swatch" style="background:#F2A123;width:22px;height:14px;"></span></td><td>緩勾配の谷底低地・扇状地など</td><td></td></tr>
+      <tr><td><span class="swatch" style="background:#F5EA23;width:22px;height:14px;"></span></td><td>急勾配の谷底低地・扇状地など</td><td>↓</td></tr>
+      <tr><td><span class="swatch" style="background:#C6C6C6;width:22px;height:14px;"></span></td><td>山地や丘陵など</td><td>弱</td></tr>
+    </table>
+    <p style="font-size:12.5px;color:var(--ink-soft);">※この5段階配色は重ねるハザードマップ独自の表示です。前述の通り埋め込み表示ができないため、①③とも、貼り付けた画像の色を上表と照らし合わせて目視で判断してください。</p>
+  </section>
+
+  <section id="faq">
+    <h2><span class="num">8</span>よくある質問・注意点</h2>
+    <h3>Q. スマホ・タブレットでも使えますか？</h3>
+    <p>使えます。ただし一部端末で「デスクトップ用サイトを表示」設定になっていると、レイアウトの高さ計算がずれて地図が表示されないことがあります。その場合は「モバイル用サイトを表示」に切り替えてください。</p>
+    <h3>Q. アップロードした画像は保存されますか？</h3>
+    <p>されません。画像はブラウザ内のみで一時的に保持され、外部には送信されません。ページを閉じる・再読み込みすると消えるため、印刷やPDF・Excel出力を先に済ませてください。</p>
+    <h3>Q. 印刷したら1枚に収まりませんでした</h3>
+    <p>ブラウザの印刷設定で「用紙サイズ：A4」「倍率：100%（デフォルト）」になっているか確認してください。拡大縮小が自動になっていると崩れることがあります。</p>
+    <h3>Q. データが実際の危険度と違う気がします</h3>
+    <p>本ツールが自動表示・自動判定する内容は、あくまで公的データをそのまま（またはガイドラインに沿って）表示した参考情報です。最終的な判断や社内書類への記載は、必ず目視での確認を行ってください。</p>
+  </section>
+
+  <section id="links">
+    <h2><span class="num">9</span>参考リンク集</h2>
+    <p>本ツールが参照している、または検討時に調べた各サイトの簡単な説明です。</p>
+    <ul class="linklist">
+      <li>
+        <a class="linktitle ext" href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener">重ねるハザードマップ（ハザードマップポータルサイト）</a>
+        <div class="desc">国土交通省・国土地理院が運営する、全国の災害リスク情報をまとめて閲覧できるサイト。洪水・内水・高潮・津波・土砂災害など複数のハザード情報を、住所検索して重ねて確認できる。本ツールの②④⑤⑥は、このサイトが配信するオープンデータのタイルをそのまま利用している。</div>
+      </li>
+      <li>
+        <a class="linktitle ext" href="https://www.higaisoutei.metro.tokyo.lg.jp/eqmap/eqmapgis.html" target="_blank" rel="noopener">東京被害想定マップ（東京都）</a>
+        <div class="desc">東京都が公開する、地震シナリオ別（都心南部直下地震など）の震度分布・液状化危険度・建物被害等の想定マップ。オープンデータとしての埋め込み配信はされていないため、本ツールでは①のリンクからこのサイトを開き、スクリーンショットを手動で読み込む運用にしている。</div>
+      </li>
+      <li>
+        <a class="linktitle ext" href="https://www2.wagmap.jp/pref-kanagawa/PositionSelect?mid=31" target="_blank" rel="noopener">e-かなまっぷ（神奈川県）</a>
+        <div class="desc">神奈川県内の各種行政情報を地図上で閲覧できるサイト（運営：株式会社パスコ）。地震被害想定などの確認に使えるが、利用規約で営利目的・商用利用が明確に禁止されているため、本ツールでは自動取得はせず、参照リンクとしてのみ案内している。</div>
+      </li>
+      <li>
+        <a class="linktitle ext" href="https://catalog.data.metro.tokyo.lg.jp/dataset/t000003d2000000390" target="_blank" rel="noopener">東京都オープンデータカタログサイト（震度・液状化メッシュデータ）<span class="tag unused">現在は不使用</span></a>
+        <div class="desc">東京都が公開する「計測震度50mメッシュ別」「液状化データ250mメッシュ別（PL値・沈下量）」等のCSVデータ。地震シナリオ別に東京都全域のメッシュ値が入手できる。検討・試作を行ったが、精度確認や表示範囲（東京都限定）の課題から、現在の③液状化では不採用とし、手動アップロード方式に統一している。</div>
+      </li>
+      <li>
+        <a class="linktitle ext" href="https://www.gsi.go.jp/bousaichiri/lfc_index.html" target="_blank" rel="noopener">国土地理院「地形分類」ベクトルタイル<span class="tag unused">現在は不使用</span></a>
+        <div class="desc">国土地理院が提供実験として公開している、全国の詳細な地形分類（旧河道・扇状地・台地・埋立地など）のベクトルタイル（GeoJSON形式）。重ねるハザードマップの液状化レイヤーの元になっているデータで、色情報も含んだ形式のため実装しやすいが、重ねるハザードマップ側の5段階の色分けとは配色の仕組みが異なり精度が合わなかったため、現在の③液状化では不採用としている。</div>
+      </li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  本ページは社内利用のために独自に作成した説明資料であり、国土交通省・国土地理院・東京都等が作成した公式ドキュメントではありません。
+</footer>
+
+</body>
+</html>
