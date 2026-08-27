@@ -192,7 +192,10 @@
   }
   .drop-zone .dz-howto b{font-weight:900;}
   .drop-zone .dz-link{font-size:7.5pt;}
-  .drop-zone .dz-link a{color:var(--pc); font-weight:700;}
+  .drop-zone .dz-link a{
+    display:inline-block; background:var(--pc); color:#fff !important; font-weight:700;
+    padding:5px 12px; border-radius:999px; margin-top:2px;
+  }
   .replace-btn{
     position:absolute;top:5px;right:5px;background:rgba(255,255,255,.95);
     border:1px solid var(--line);font-size:10px;padding:3px 9px;border-radius:999px;z-index:600;font-weight:700;
@@ -314,7 +317,7 @@
   </div>
   <div class="grid" id="grid"></div>
   <p class="sheet-foot">
-    出典：「ハザードマップポータルサイト」（国土交通省・国土地理院）を加工して作成。②津波・④土砂崩れ・⑤水害(洪水)・⑥高潮は同サイトの配信タイルをもとに作成。背景地図の出典：国土地理院（地理院タイル）。住所検索：地理院地図（協力：東大CSIS）。①地震・③液状化（PL値メッシュ）は東京都オープンデータ等、各都道府県が公表する資料をもとに作成。②④⑤⑥の条件欄は、検索地点のタイル画像の色を浸水ランク配色ガイドラインと照合して自動推定した参考値であり、目視確認のうえ必要に応じて修正しています。本ツールは国土交通省・国土地理院・東京都等が作成した公式ツールではなく、社内利用のために独自に作成したものです。
+    出典：「ハザードマップポータルサイト」（国土交通省・国土地理院）を加工して作成。②津波・④土砂崩れ・⑤水害(洪水)・⑥高潮は同サイトの配信タイルをもとに作成。背景地図の出典：国土地理院（地理院タイル）。住所検索：地理院地図（協力：東大CSIS）。①地震・③液状化は各都道府県・関係機関が公表する資料の画像を掲載。②④⑤⑥の条件欄は、検索地点のタイル画像の色を浸水ランク配色ガイドラインと照合して自動推定した参考値であり、目視確認のうえ必要に応じて修正しています。本ツールは国土交通省・国土地理院・東京都等が作成した公式ツールではなく、社内利用のために独自に作成したものです。
   </p>
 </div>
 
@@ -342,10 +345,9 @@
       urls:['https://disaportaldata.gsi.go.jp/raster/04_tsunami_newlegend_data/{z}/{x}/{y}.png']
     },
     {
-      id:'ekijouka', num:'③', title:'液状化', type:'mesh', color:'var(--c-ekijouka)', colorHex:'#F2B233',
+      id:'ekijouka', num:'③', title:'液状化', type:'upload', color:'var(--c-ekijouka)', colorHex:'#F2B233',
       cond:'強(建物傾斜、下水道使用不可)',
-      dataUrl:'./ekijouka_data.json',
-      hint:'東京都オープンデータ（250mメッシュ・都心南部直下地震シナリオ）が使える地点は自動で色分け表示します。対象外の地点（東京都以外など）は、重ねるハザードマップの発生傾向図をスクリーンショットして読み込ませてください。',
+      hint:'重ねるハザードマップの「地形区分に基づく液状化の発生傾向図」を表示し、スクリーンショットを読み込ませてください。',
       links:[{label:'重ねるハザードマップ（液状化）を開く', urlTemplate:'https://disaportal.gsi.go.jp/hazardmap/maps/index.html?ll={lat},{lng}&z=15&base=pale&ls=ekijouka_zenkoku,0.8&disp=1&vs=c1j0l0u0t0h0z0'}]
     },
     {
