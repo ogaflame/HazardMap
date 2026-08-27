@@ -186,6 +186,11 @@
     background:var(--pc);color:#fff;padding:6px 16px;font-size:11px;font-weight:700;border-radius:999px;
   }
   .drop-zone .dz-hint{font-size:8pt;color:var(--ink-soft);line-height:1.6;max-width:62mm;}
+  .drop-zone .dz-howto{
+    font-size:7.5pt;color:var(--pc);line-height:1.5;max-width:62mm;
+    background:#fff;border:1px dashed var(--pc);border-radius:6px;padding:3px 7px;
+  }
+  .drop-zone .dz-howto b{font-weight:900;}
   .drop-zone .dz-link{font-size:7.5pt;}
   .drop-zone .dz-link a{color:var(--pc); font-weight:700;}
   .replace-btn{
@@ -204,7 +209,7 @@
   /* ============ print: exactly one A4 page ============ */
   @page{ size:A4 portrait; margin:0; }
   @media print{
-    header, #toolbar, .hint-bar, .replace-btn, .drop-zone .dz-btn, .drop-zone .dz-link{display:none !important;}
+    header, #toolbar, .hint-bar, .replace-btn, .drop-zone .dz-btn, .drop-zone .dz-link, .drop-zone .dz-howto{display:none !important;}
     body{background:#fff;}
     #sheet{
       width:210mm; height:297mm; min-height:0;
@@ -420,6 +425,7 @@
     slot.innerHTML =
       '<div class="drop-zone" id="dz_'+p.id+'">' +
         '<span class="dz-btn">画像を読み込む</span>' +
+        '<span class="dz-howto">Windows：<b>Win+Shift+S</b>で範囲をコピー→この枠にカーソルを合わせて<b>Ctrl+V</b>で貼り付け</span>' +
         '<span class="dz-hint">'+p.hint+'</span>' +
         (linkHtml ? '<span class="dz-link">'+linkHtml+'</span>' : '') +
         '<input type="file" accept="image/*" id="file_'+p.id+'" style="display:none;">' +
