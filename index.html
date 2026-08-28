@@ -249,20 +249,47 @@
   .leaflet-control-attribution{font-size:10px !important;}
 
   /* ---------- print ---------- */
+  @page{ size:A4 landscape; margin:8mm; }
   @media print{
-    header .actions, #sidebar .no-print, #searchForm, #searchStatus, footer{display:none !important;}
-    header{background:#fff; color:var(--ink); border-bottom:2px solid var(--ink);}
+    header .actions, #searchForm, footer{display:none !important;}
+    header{background:#fff; color:var(--ink); border-bottom:2px solid var(--ink); padding:0 0 6px;}
+    header h1{font-size:14px;}
+    header .sub{font-size:9px;}
     .rainbow{display:none !important;}
-    #main{grid-template-columns:220px 1fr;}
-    #sidebar{border-right:1px solid #999; overflow:visible;}
-    #app{height:auto;}
-    #map{height:100vh;}
+
+    html, body{width:281mm; height:194mm;}
+    #app{height:194mm; display:grid; grid-template-rows:auto 1fr;}
+    #main{grid-template-columns:52mm 1fr; height:170mm;}
+
+    #sidebar{
+      border-right:1px solid #999; overflow:hidden; padding:6px 8px;
+      font-size:10px;
+    }
+    #sidebar .field-label{display:none !important;}
+    #sidebar #searchStatus{
+      display:block !important; font-size:11px; font-weight:700; color:var(--ink) !important;
+      margin:0 0 10px; padding-bottom:8px; border-bottom:1px solid var(--line-soft);
+    }
+    #sidebar .basemap-row,
+    #sidebar .opacity-row,
+    #sidebar .layer-head input[type=checkbox],
+    #sidebar .unavail{
+      display:none !important;
+    }
+    #sidebar .section{padding-top:8px; margin-top:8px;}
+    #sidebar .layer-item{margin-bottom:3px; border:none;}
+    #sidebar .layer-item:not(.on){display:none !important;} /* ONのレイヤーだけ凡例として残す */
+    #sidebar .layer-head{padding:3px 0; background:none !important;}
+    #sidebar .layer-head label{font-size:10px;}
+    #sidebar .layer-body{display:none !important;}
+
+    #map{height:170mm;}
     body{background:#fff;}
-    .layer-body{display:block !important;}
     .leaflet-control-zoom, .leaflet-control-layers{display:none;}
+    .leaflet-control-attribution{font-size:7px !important;}
   }
 
-  @media (max-width: 760px){
+  @media screen and (max-width: 760px){
     #main{grid-template-columns:1fr;}
     #sidebar{order:2; max-height:44vh;}
     #map{min-height:40vh;}
