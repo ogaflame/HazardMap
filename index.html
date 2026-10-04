@@ -387,6 +387,12 @@
       </div>
 
       <div class="section">
+        <p class="field-label">避難場所（指定緊急避難場所）</p>
+        <div id="shelterList"></div>
+        <div class="legend-swatch-list" style="margin-top:6px;">地図の表示範囲を動かすと、その範囲のマーカーを自動で読み込み直します。マーカーをクリックすると施設名・住所が表示されます。</div>
+      </div>
+
+      <div class="section">
         <p class="field-label">対応していない項目</p>
         <div class="unavail">
           <b>地震（震度分布）・液状化</b> は国土地理院のオープンデータ配信の対象外のため、本ツールでは表示できません。都道府県の被害想定システム（例：東京都防災アプリ／被害想定など）でスクリーンショットを取得し、別途Excelに貼り付けてください。
@@ -399,7 +405,7 @@
   </div>
 
   <footer>
-    出典：<a href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener">ハザードマップポータルサイト（国土交通省・国土地理院）</a>　背景地図：地理院タイル（国土地理院）　本ツールは配信データをリアルタイムに読み込んで表示しており、内容の正確性は出典元の発表に基づきます。
+    出典：<a href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener">ハザードマップポータルサイト（国土交通省・国土地理院）</a>　背景地図：地理院タイル（国土地理院）　避難場所：<a href="https://www.gsi.go.jp/bousaichiri/hinanbasho.html" target="_blank" rel="noopener">指定緊急避難場所データ（国土地理院・内閣府・消防庁）</a>　本ツールは配信データをリアルタイムに読み込んで表示しており、内容の正確性は出典元の発表に基づきます。一部の市区町村はデータが未公開です。
   </footer>
 </div>
 
@@ -526,6 +532,116 @@
 
   // default: turn on flood so first-time users see something
   document.getElementById('chk_flood').click();
+
+  // ---- 避難場所（指定緊急避難場所、災害種別ごと） ----
+  var SHELTER_ATTR = '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院 地理院タイル</a>';
+  var shelterDefs = [
+    {id:'sh_flood',   code:'skhb01', title:'洪水',               color:'#3E6FE0'},
+    {id:'sh_gake',    code:'skhb02', title:'崖崩れ・土石流・地滑り', color:'#E8763A'},
+    {id:'sh_takashio',code:'skhb03', title:'高潮',               color:'#26B99A'},
+    {id:'sh_jishin',  code:'skhb04', title:'地震',               color:'#FF5D73'},
+    {id:'sh_tsunami', code:'skhb05', title:'津波',               color:'#1FA7C9'},
+    {id:'sh_kasai',   code:'skhb06', title:'大規模な火事',         color:'#B5793F'},
+    {id:'sh_naisui',  code:'skhb07', title:'内水氾濫',            color:'#29B6D8'},
+    {id:'sh_kazan',   code:'skhb08', title:'火山現象',            color:'#8B5CF6'}
+  ];
+
+  var shelterListEl = document.getElementById('shelterList');
+  var shelterLayers = {}; // id -> L.layerGroup
+  var shelterActive = {}; // id -> bool
+
+  function lonLatToTileXY(lon, lat, z){
+    var n = Math.pow(2, z);
+    var x = Math.floor((lon + 180) / 360 * n);
+    var latRad = lat * Math.PI / 180;
+    var y = Math.floor((1 - Math.log(Math.tan(latRad) + 1/Math.cos(latRad)) / Math.PI) / 2 * n);
+    return {x:x, y:y};
+  }
+
+  function shelterPopupText(props){
+    props = props || {};
+    var name = props['施設・場所名'] || props['facility_name_ja'] || props['name'] || '避難場所';
+    var addr = props['住所'] || props['address_ja'] || props['address'] || '';
+    return '<b>' + name + '</b>' + (addr ? '<br>' + addr : '');
+  }
+
+  function loadShelterLayer(d){
+    var z = 10;
+    var b = map.getBounds();
+    var nw = lonLatToTileXY(b.getWest(), b.getNorth(), z);
+    var se = lonLatToTileXY(b.getEast(), b.getSouth(), z);
+    var reqs = [];
+    for (var x = nw.x; x <= se.x; x++){
+      for (var y = nw.y; y <= se.y; y++){
+        var url = 'https://cyberjapandata.gsi.go.jp/xyz/' + d.code + '/' + z + '/' + x + '/' + y + '.geojson';
+        reqs.push(fetch(url).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; }));
+      }
+    }
+    Promise.all(reqs).then(function(results){
+      if (!shelterActive[d.id]) return; // チェックが外れていたら描画しない
+      shelterLayers[d.id].clearLayers();
+      var count = 0;
+      results.forEach(function(gj){
+        if (!gj || !gj.features) return;
+        count += gj.features.length;
+        L.geoJSON(gj, {
+          pointToLayer: function(feature, latlng){
+            return L.circleMarker(latlng, {
+              radius:6, color:'#1c2430', weight:1.5, fillColor:d.color, fillOpacity:0.9
+            });
+          },
+          onEachFeature: function(feature, layer){
+            layer.bindPopup(shelterPopupText(feature.properties));
+          }
+        }).addTo(shelterLayers[d.id]);
+      });
+      var statusEl = document.getElementById('stat_'+d.id);
+      if (statusEl) statusEl.textContent = count > 0 ? ('表示範囲内：'+count+'件') : '表示範囲内に該当データなし';
+    });
+  }
+
+  shelterDefs.forEach(function(d){
+    var item = document.createElement('div');
+    item.className = 'layer-item';
+    item.innerHTML =
+      '<div class="layer-head">' +
+        '<span class="swatch" style="background:'+d.color+'"></span>' +
+        '<input type="checkbox" id="chk_'+d.id+'" style="margin:0 2px 0 0;">' +
+        '<label for="chk_'+d.id+'">'+d.title+'</label>' +
+      '</div>' +
+      '<div class="legend-swatch-list" id="stat_'+d.id+'" style="padding:2px 10px 8px 30px; display:none;"></div>';
+    shelterListEl.appendChild(item);
+
+    shelterLayers[d.id] = L.layerGroup();
+
+    var chk = item.querySelector('#chk_'+d.id);
+    chk.addEventListener('change', function(){
+      var statusEl = document.getElementById('stat_'+d.id);
+      if (chk.checked){
+        shelterActive[d.id] = true;
+        shelterLayers[d.id].addTo(map);
+        item.classList.add('on');
+        if (statusEl){ statusEl.style.display = 'block'; statusEl.textContent = '読み込み中…'; }
+        loadShelterLayer(d);
+      } else {
+        shelterActive[d.id] = false;
+        map.removeLayer(shelterLayers[d.id]);
+        item.classList.remove('on');
+        if (statusEl) statusEl.style.display = 'none';
+      }
+    });
+    item.querySelector('.layer-head label').addEventListener('click', function(e){
+      e.preventDefault();
+      chk.checked = !chk.checked;
+      chk.dispatchEvent(new Event('change'));
+    });
+  });
+
+  map.on('moveend', function(){
+    shelterDefs.forEach(function(d){
+      if (shelterActive[d.id]) loadShelterLayer(d);
+    });
+  });
 
   // ---- marker ----
   var marker = null;
